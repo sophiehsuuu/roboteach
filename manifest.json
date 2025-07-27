@@ -1,0 +1,21 @@
+{
+    "manifest_version": 3,
+    "name": "RoboLearn SPIKE AI Error Advisor",
+    "version": "0.1",
+    "permissions": ["scripting", "storage"],
+    "host_permissions": ["https://spike.legoeducation.com/*"],
+    "content_scripts": [
+      {
+        "matches": ["https://spike.legoeducation.com/*"],
+        "js": ["src/content/content.ts"]
+      }
+    ],
+    "action": {
+      "default_popup": "src/popup/index.html"
+    },
+    "icons": {
+      "16": "public/icons/icon16.png",
+      "48": "public/icons/icon48.png"
+    }
+  }
+  
