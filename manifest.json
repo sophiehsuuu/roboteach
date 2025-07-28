@@ -14,8 +14,9 @@
       "default_popup": "src/popup/index.html"
     },
     "icons": {
-      "16": "public/icons/icon16.png",
-      "48": "public/icons/icon48.png"
+      "16": "icons/robo16.png",
+      "48": "icons/robo48.png",
+      "128": "icons/robo128.png"
     }
   }
   
