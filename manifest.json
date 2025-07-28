@@ -7,7 +7,7 @@
     "content_scripts": [
       {
         "matches": ["https://spike.legoeducation.com/*"],
-        "js": ["src/content/content.ts"]
+        "js": ["src/content/content.js"]
       }
     ],
     "action": {
