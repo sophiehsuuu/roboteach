@@ -1,5 +1,5 @@
-// SPIKE Advisor Content Script
-// This script runs on SPIKE Prime pages to detect and analyze Blockly blocks
+// SPIKE Advisor Content Script - Visual Workspace Block Detection
+// This script runs on SPIKE Prime pages to detect ONLY blocks in the visible workspace
 
 // Check if we're in a valid extension context
 function isExtensionContextValid(): boolean {
@@ -8,414 +8,559 @@ function isExtensionContextValid(): boolean {
          chrome.runtime.id !== undefined;
 }
 
-// Wait for the page to be fully loaded
-function waitForPageReady(): Promise<void> {
-  return new Promise((resolve) => {
-    if (document.readyState === 'complete') {
-      resolve();
-    } else {
-      window.addEventListener('load', () => resolve());
-    }
-  });
-}
-
-// Wait for Blockly DOM elements to appear
-function waitForBlocklyDOM(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // Check if elements already exist
-    const existingElements = document.querySelectorAll('[data-id][class*="blocklyDraggable"]');
-    if (existingElements.length > 0) {
-      console.log('[SPIKE Advisor] Found', existingElements.length, 'Blockly DOM elements immediately');
-      resolve();
-      return;
-    }
-
-    // Set up observer to wait for elements
-    const observer = new MutationObserver(() => {
-      const elements = document.querySelectorAll('[data-id][class*="blocklyDraggable"]');
-      if (elements.length > 0) {
-        console.log('[SPIKE Advisor] Found', elements.length, 'Blockly DOM elements');
-        observer.disconnect();
-        resolve();
-      }
-    });
-
-    // Start observing
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    // Timeout after 15 seconds
-    setTimeout(() => {
-      observer.disconnect();
-      reject(new Error('Timeout waiting for Blockly DOM elements'));
-    }, 15000);
-  });
-}
-
-// Extract blocks directly from DOM elements
-function extractBlocksFromDOM(): any[] {
-  console.log('[SPIKE Advisor] Extracting blocks from DOM...');
-  
-  // Find all Blockly block elements
-  const blocklyElements = document.querySelectorAll('[data-id][class*="blocklyDraggable"]');
-  console.log('[SPIKE Advisor] Found', blocklyElements.length, 'Blockly DOM elements');
+// Main function to extract ONLY blocks visible in the main workspace
+function extractVisibleWorkspaceBlocks(): any[] {
+  console.log('[SPIKE Advisor] 🎯 Extracting ONLY visible workspace blocks...');
   
   const blocks: any[] = [];
-  const seenIds = new Set<string>(); // Track seen block IDs to avoid duplicates
-  const seenPositions = new Set<string>(); // Track seen positions to avoid duplicates
   
-  blocklyElements.forEach((element) => {
+  // Debug: Find different possible workspace containers
+  const workspaceContainers = [
+    '.blocklyMainWorkspaceDiv svg',
+    '.blocklyMainWorkspaceDiv',
+    '.blocklySvg',
+    '.blocklyWorkspace',
+    '#blocklyDiv svg',
+    '#blocklyDiv'
+  ];
+  
+  let mainWorkspaceSvg: Element | null = null;
+  
+  for (const selector of workspaceContainers) {
+    const element = document.querySelector(selector);
+    if (element) {
+      console.log(`[SPIKE Advisor] ✅ Found workspace using selector: ${selector}`);
+      mainWorkspaceSvg = element;
+      break;
+    } else {
+      console.log(`[SPIKE Advisor] ❌ No element found for: ${selector}`);
+    }
+  }
+  
+  if (!mainWorkspaceSvg) {
+    console.log('[SPIKE Advisor] ❌ Could not find any workspace container');
+    // Try to find any blockly-related elements
+    const allBlocklyElements = document.querySelectorAll('[class*="blockly"], [id*="blockly"]');
+    console.log(`[SPIKE Advisor] 🔍 Found ${allBlocklyElements.length} elements with 'blockly' in class/id:`);
+    allBlocklyElements.forEach((el, i) => {
+      console.log(`  ${i + 1}. ${el.tagName}.${el.className} #${el.id}`);
+    });
+    return [];
+  }
+  
+  const workspaceRect = mainWorkspaceSvg.getBoundingClientRect();
+  console.log('[SPIKE Advisor] 📐 Main workspace bounds:', {
+    left: workspaceRect.left,
+    top: workspaceRect.top,
+    width: workspaceRect.width,
+    height: workspaceRect.height
+  });
+  
+  // Try different selectors to find blocks
+  const blockSelectors = [
+    'g[data-id]:not([data-id=""])',
+    'g.blocklyDraggable', 
+    '.blocklyDraggable',
+    '[data-id]',
+    'g[transform]',
+    '.blocklyBlockCanvas g'
+  ];
+  
+  let blockElements: NodeListOf<Element> | null = null;
+  let usedSelector = '';
+  
+  for (const selector of blockSelectors) {
+    const elements = mainWorkspaceSvg.querySelectorAll(selector);
+    if (elements.length > 0) {
+      console.log(`[SPIKE Advisor] ✅ Found ${elements.length} elements using selector: ${selector}`);
+      blockElements = elements;
+      usedSelector = selector;
+      break;
+    } else {
+      console.log(`[SPIKE Advisor] ❌ No elements found for: ${selector}`);
+    }
+  }
+  
+  if (!blockElements || blockElements.length === 0) {
+    console.log('[SPIKE Advisor] ❌ Could not find any block elements');
+    // Try searching in the entire document as fallback
+    const allElements = document.querySelectorAll('[data-id], .blocklyDraggable');
+    console.log(`[SPIKE Advisor] 🔍 Fallback: Found ${allElements.length} elements in entire document`);
+    if (allElements.length > 0) {
+      console.log('[SPIKE Advisor] 🔄 Using document-wide search as fallback');
+      blockElements = allElements;
+      usedSelector = 'document fallback';
+    } else {
+      return [];
+    }
+  }
+  
+  console.log(`[SPIKE Advisor] 🔍 Processing ${blockElements.length} elements from: ${usedSelector}`);
+  
+  blockElements.forEach((element, index) => {
     try {
-      const dataId = element.getAttribute('data-id');
-      const dataShapes = element.getAttribute('data-shapes');
-      const dataCategory = element.getAttribute('data-category');
+      const rect = element.getBoundingClientRect();
       
-      // Get position from transform attribute
-      const transform = element.getAttribute('transform');
-      let x = 0, y = 0;
-      if (transform) {
-        const translateMatch = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-        if (translateMatch) {
-          x = parseFloat(translateMatch[1]) || 0;
-          y = parseFloat(translateMatch[2]) || 0;
-        }
-      }
-      
-      // Create position key for deduplication
-      const positionKey = `${Math.round(x)},${Math.round(y)}`;
-      
-      // Skip if we've already seen this block ID or position
-      if (dataId && seenIds.has(dataId)) {
-        console.log('[SPIKE Advisor] Skipping duplicate block ID:', dataId);
-        return;
-      }
-      
-      if (seenPositions.has(positionKey)) {
-        console.log('[SPIKE Advisor] Skipping duplicate position:', positionKey);
-        return;
-      }
-      
-      // Get text from this specific block element only
-      const textElements = element.querySelectorAll('.blocklyText');
-      let fullText = '';
-      textElements.forEach((textEl) => {
-        const textContent = textEl.textContent || '';
-        if (textContent.trim()) {
-          if (fullText) fullText += ' ';
-          fullText += textContent.trim();
-        }
+      // Debug: Log all elements we find
+      console.log(`[SPIKE Advisor] 🔍 Element ${index}:`, {
+        tag: element.tagName,
+        classes: element.className,
+        dataId: element.getAttribute('data-id'),
+        dataCategory: element.getAttribute('data-category'),
+        text: element.textContent?.substring(0, 50) + '...',
+        size: `${rect.width}x${rect.height}`,
+        position: `(${rect.left}, ${rect.top})`
       });
       
-      // If no text found, try alternative selectors
-      if (!fullText.trim()) {
-        const altTextElement = element.querySelector('[data-text]');
-        if (altTextElement) {
-          fullText = altTextElement.getAttribute('data-text') || '';
-        }
+      // Temporarily relaxed filtering - just require some size and text
+      const isValidWorkspaceBlock = (
+        rect.width > 10 &&
+        rect.height > 10 &&
+        element.textContent &&
+        element.textContent.trim().length > 0
+      );
+      
+      if (!isValidWorkspaceBlock) {
+        console.log(`[SPIKE Advisor] ❌ Filtering out element ${index}: size(${rect.width}x${rect.height}) text="${element.textContent?.substring(0, 20)}"`);
+        return;
       }
       
-      // Check if this block is in the workspace (not palette)
-      const isInWorkspace = isBlockInWorkspace(element, x, y);
+      // Extract meaningful information from the block
+      const dataId = element.getAttribute('data-id');
       
-      const block = {
-        id: dataId,
-        type: fullText.trim(),
-        category: dataCategory,
-        shape: dataShapes,
-        x: x,
-        y: y,
-        text: fullText,
-        element: element,
-        isInWorkspace: isInWorkspace
+      // Get text more selectively - only from immediate text nodes, not nested blocks
+      const textData = getBlockOwnTextAndColor(element);
+      const text = textData.text;
+      const detectedColor = textData.color;
+      const dataCategory = element.getAttribute('data-category');
+      
+      // Skip blocks without meaningful content
+      if (!text || text.length < 2) {
+        console.log(`[SPIKE Advisor] ❌ Skipping block with no text: "${text}"`);
+        return;
+      }
+      
+      // Skip meaningless/invalid blocks
+      if (isMeaninglessBlock(text)) {
+        console.log(`[SPIKE Advisor] ❌ Skipping meaningless block: "${text}"`);
+        return;
+      }
+      
+      // Create block data
+      const blockData = {
+        id: dataId || `workspace_block_${index}`,
+        type: dataCategory || detectBlockType(text),
+        category: dataCategory || detectBlockCategory(text),
+        text: cleanBlockText(text, detectedColor),
+        x: rect.left - workspaceRect.left,
+        y: rect.top - workspaceRect.top,
+        width: rect.width,
+        height: rect.height,
+        isInWorkspace: true
       };
       
-      if (isInWorkspace) {
-        console.log('[SPIKE Advisor] Workspace block:', {
-          id: block.id,
-          text: block.text,
-          x: block.x,
-          y: block.y,
-          category: block.category,
-          shape: block.shape,
-          hasConnections: element.querySelector('.blocklyConnection') !== null,
-          isVisible: element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0,
-          parentClasses: element.parentElement?.className || 'none',
-          rect: element.getBoundingClientRect(),
-          computedStyle: {
-            display: window.getComputedStyle(element).display,
-            visibility: window.getComputedStyle(element).visibility,
-            opacity: window.getComputedStyle(element).opacity
-          }
-        });
-        
-        // Add to seen IDs and positions to prevent duplicates
-        if (dataId) {
-          seenIds.add(dataId);
-        }
-        seenPositions.add(positionKey);
-      } else {
-        console.log('[SPIKE Advisor] Palette block:', block);
-      }
+      console.log(`[SPIKE Advisor] ✅ Valid workspace block ${blocks.length + 1}:`, {
+        type: blockData.type,
+        text: blockData.text.substring(0, 40) + '...',
+        position: `(${Math.round(blockData.x)}, ${Math.round(blockData.y)})`,
+        size: `${Math.round(blockData.width)}x${Math.round(blockData.height)}`
+      });
       
-      blocks.push(block);
+      blocks.push(blockData);
       
-    } catch (e) {
-      console.log('[SPIKE Advisor] Error extracting block:', e);
+    } catch (error) {
+      console.warn(`[SPIKE Advisor] ⚠️ Error processing element ${index}:`, error);
     }
   });
   
-  // Filter to only workspace blocks
-  const workspaceBlocks = blocks.filter(block => block.isInWorkspace);
-  console.log('[SPIKE Advisor] Found', workspaceBlocks.length, 'workspace blocks out of', blocks.length, 'total blocks');
-  
-  // Additional filtering: remove any blocks that might be cached or auto-included
-  const visibleBlocks = workspaceBlocks.filter(block => {
-    // Skip blocks with very generic or empty text
-    if (!block.text || block.text.trim() === '' || block.text.trim() === 'A') {
-      console.log('[SPIKE Advisor] Filtering out block with generic text:', block.text);
-      return false;
-    }
-    
-    // Skip blocks that are likely cached/auto-included (very small or off-screen)
-    if (block.x < -1000 || block.y < -1000 || block.x > 5000 || block.y > 5000) {
-      console.log('[SPIKE Advisor] Filtering out off-screen block:', block.text, 'at', block.x, block.y);
-      return false;
-    }
-    
-    // Skip blocks that don't have meaningful content
-    if (block.text.length < 3) {
-      console.log('[SPIKE Advisor] Filtering out block with too short text:', block.text);
-      return false;
-    }
-    
-    return true;
-  });
-  
-  console.log('[SPIKE Advisor] After additional filtering:', visibleBlocks.length, 'visible blocks');
-  
-  return visibleBlocks;
+  console.log(`[SPIKE Advisor] 🎉 Successfully extracted ${blocks.length} visible workspace blocks`);
+  return blocks;
 }
 
-// Helper: Check if a block is in the workspace (not palette)
-function isBlockInWorkspace(element: Element, x: number, y: number): boolean {
-  const blockText = element.querySelector('.blocklyText')?.textContent || '';
-  const blockId = element.getAttribute('data-id') || '';
+// Helper function to detect block type from text content
+function detectBlockType(text: string): string {
+  const lowerText = text.toLowerCase();
   
-  // Method 1: Check if block is in a flyout (palette) - this is the most reliable
-  let parent = element.parentElement;
-  while (parent) {
-    if (parent.classList.contains('blocklyFlyout') || 
-        parent.classList.contains('blocklyToolbox') ||
-        parent.getAttribute('data-testid') === 'blockly-toolbox' ||
-        parent.classList.contains('blocklyToolboxCategory') ||
-        parent.classList.contains('blocklyToolboxCategoryContents')) {
-      console.log('[SPIKE Advisor] Block in palette container:', parent.className);
-      return false;
+  if (lowerText.includes('when program starts')) return 'event_start';
+  if (lowerText.includes('set speed') && lowerText.includes('motor')) return 'motor_speed';
+  if (lowerText.includes('run') && lowerText.includes('motor')) return 'motor_run';
+  if (lowerText.includes('forever')) return 'control_forever';
+  if (lowerText.includes('repeat')) return 'control_repeat';
+  if (lowerText.includes('turn on') && lowerText.includes('second')) return 'light_on';
+  if (lowerText.includes('move') && lowerText.includes('rotation')) return 'movement_move';
+  if (lowerText.includes('start moving')) return 'movement_start';
+  if (lowerText.includes('stop moving')) return 'movement_stop';
+  
+  return 'unknown';
+}
+
+// Helper function to get only the block's own text, not nested children text
+function getBlockOwnTextAndColor(element: Element): { text: string; color: string | null } {
+  // Strategy: Get text from direct text nodes and .blocklyText elements within this block,
+  // but avoid text from deeply nested child blocks
+  
+  const textParts: string[] = [];
+  let detectedColor: string | null = null;
+  
+  // Look for .blocklyText elements (these usually contain the block's display text)
+  const textElements = element.querySelectorAll('.blocklyText');
+  textElements.forEach(textEl => {
+    const text = textEl.textContent?.trim();
+    if (text && text.length > 0) {
+      textParts.push(text);
     }
-    parent = parent.parentElement;
+  });
+  
+  // Also look for color indicators - check for colored elements that might represent color values
+  // Use a broader search including ANY element with fill attribute
+  const colorElements = element.querySelectorAll('[fill]:not([fill="none"]):not([fill=""])');
+  console.log('[SPIKE Advisor] 🔍 Found', colorElements.length, 'color elements in block');
+  
+  // Also check for "no color" indicators
+  const noColorElements = element.querySelectorAll('.lls-color-selector__outer.no-color, .is-current');
+  if (noColorElements.length > 0) {
+    console.log('[SPIKE Advisor] 🔍 Found potential no-color indicator');
+    textParts.push('no color');
+    detectedColor = 'no color';
   }
   
-  // Method 2: Check if block is actually visible and rendered
-  const rect = element.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) {
-    console.log('[SPIKE Advisor] Block has zero dimensions');
-    return false;
+  colorElements.forEach(colorEl => {
+    const fill = colorEl.getAttribute('fill');
+    const style = colorEl.getAttribute('style');
+    
+    console.log('[SPIKE Advisor] 🎨 Found color element:', {
+      tag: colorEl.tagName,
+      fill: fill,
+      style: style,
+      classes: colorEl.className
+    });
+    
+    if (fill) {
+      const colorName = getColorName(fill);
+      if (colorName && !detectedColor) {
+        console.log('[SPIKE Advisor] ✅ Detected color:', colorName);
+        detectedColor = colorName;
+        textParts.push(colorName);
+      }
+    }
+    
+    // Also check style attribute for color information
+    if (style && style.includes('fill:') && !detectedColor) {
+      const styleColorMatch = style.match(/fill:\s*([^;]+)/);
+      if (styleColorMatch) {
+        const styleColor = styleColorMatch[1].trim();
+        const colorName = getColorName(styleColor);
+        if (colorName) {
+          console.log('[SPIKE Advisor] ✅ Detected color from style:', colorName);
+          detectedColor = colorName;
+          textParts.push(colorName);
+        }
+      }
+    }
+  });
+  
+  // If no .blocklyText found, try to get text from immediate children only
+  if (textParts.length === 0) {
+    // Get text from direct text nodes and immediate child text elements
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          // Only accept text nodes that are close to the root element
+          const depth = getNodeDepth(node, element);
+          return depth <= 3 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+      const text = node.textContent?.trim();
+      if (text && text.length > 0 && !text.includes('blockly')) {
+        textParts.push(text);
+      }
+    }
   }
   
-  // Method 3: Check if block is within the visible viewport
-  if (rect.top < 0 || rect.left < 0 || rect.bottom > window.innerHeight || rect.right > window.innerWidth) {
-    console.log('[SPIKE Advisor] Block outside viewport:', rect);
-    return false;
+  // Join and clean the text
+  let result = textParts.join(' ').trim();
+  
+  // Remove duplicates and clean up
+  const words = result.split(/\s+/).filter((word, index, arr) => 
+    word.length > 0 && arr.indexOf(word) === index
+  );
+  
+  const finalText = words.join(' ');
+  
+  console.log('[SPIKE Advisor] 📝 Extracted text parts:', textParts);
+  console.log('[SPIKE Advisor] 📝 Final text:', finalText);
+  console.log('[SPIKE Advisor] 🎨 Detected color:', detectedColor);
+  
+  return { text: finalText, color: detectedColor };
+}
+
+// Helper function to get the depth of a node relative to root
+function getNodeDepth(node: Node, root: Element): number {
+  let depth = 0;
+  let current = node.parentNode;
+  while (current && current !== root && depth < 10) {
+    depth++;
+    current = current.parentNode;
+  }
+  return depth;
+}
+
+// Helper function to convert hex/rgb colors to readable color names
+function getColorName(fill: string): string | null {
+  const colorMap: { [key: string]: string } = {
+    // SPIKE Prime exact colors from CSS inspection
+    // Red
+    '#ff000c': 'red',
+    '#ff0000': 'red',
+    
+    // Pink - rgb(231, 0, 167)
+    '#e700a7': 'pink',
+    
+    // Dark Blue - rgb(0, 144, 245) 
+    '#0090f5': 'blue',
+    '#0000ff': 'blue',
+    
+    // Light Blue - rgb(119, 232, 255)
+    '#77e8ff': 'light blue',
+    
+    // Green - rgb(0, 168, 69)
+    '#00a845': 'green',
+    '#00ff00': 'green',
+    
+    // Yellow - rgb(255, 227, 96)
+    '#ffe360': 'yellow',
+    '#ffff00': 'yellow',
+    
+    // White - rgb(255, 255, 255)
+    '#ffffff': 'white',
+    
+    // Black - rgb(0, 0, 0)
+    '#000000': 'black',
+    
+    // Additional common variations
+    '#ff4444': 'red',
+    '#cc0000': 'red',
+    '#4444ff': 'blue',
+    '#0066cc': 'blue',
+    '#44ff44': 'green',
+    '#00cc00': 'green',
+    '#ffff44': 'yellow',
+    '#ffd700': 'yellow',
+    '#f5f5f5': 'white',
+    '#333333': 'black'
+  };
+  
+  const normalizedFill = fill.toLowerCase().trim();
+  
+  console.log('[SPIKE Advisor] 🔍 Color analysis for:', fill, '→ normalized:', normalizedFill);
+  
+  // Direct match
+  if (colorMap[normalizedFill]) {
+    console.log('[SPIKE Advisor] ✅ Direct color match:', normalizedFill, '→', colorMap[normalizedFill]);
+    return colorMap[normalizedFill];
+  } else {
+    console.log('[SPIKE Advisor] ❌ No direct match for:', normalizedFill);
+    console.log('[SPIKE Advisor] 📋 Available colors:', Object.keys(colorMap).slice(0, 10));
   }
   
-  // Method 4: Check if block is connected to other blocks (workspace blocks are usually connected)
-  // Note: We're not using this check anymore as it was causing phantom blocks to be detected
+      // Try to match RGB values
+    if (normalizedFill.startsWith('rgb')) {
+      const rgbMatch = normalizedFill.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (rgbMatch) {
+        const [, r, g, b] = rgbMatch.map(Number);
+        
+        console.log('[SPIKE Advisor] 🔍 Analyzing RGB:', { r, g, b });
+        
+        // SPIKE Prime exact RGB color detection (based on CSS values)
+        
+        // Pink: rgb(231, 0, 167)
+        if (r > 220 && g < 20 && b > 150 && b < 180) return 'pink';
+        
+        // Red: rgb(255, 0, 12) or similar high red
+        if (r > 240 && g < 30 && b < 30) return 'red';
+        
+        // Dark Blue: rgb(0, 144, 245)
+        if (r < 30 && g > 130 && g < 160 && b > 230) return 'blue';
+        
+        // Light Blue: rgb(119, 232, 255)
+        if (r > 100 && r < 140 && g > 220 && b > 240) return 'light blue';
+        
+        // Green: rgb(0, 168, 69)  
+        if (r < 30 && g > 150 && g < 180 && b > 60 && b < 80) return 'green';
+        
+        // Yellow: rgb(255, 227, 96)
+        if (r > 240 && g > 220 && b > 80 && b < 110) return 'yellow';
+        
+        // White: rgb(255, 255, 255)
+        if (r > 240 && g > 240 && b > 240) return 'white';
+        
+        // Black: rgb(0, 0, 0)
+        if (r < 30 && g < 30 && b < 30) return 'black';
+        
+        // Fallback: General color detection
+        if (r > 180 && g < 100 && b < 100) return 'red';
+        if (r < 100 && g < 100 && b > 180) return 'blue';
+        if (r < 100 && g > 180 && b < 100) return 'green';
+        if (r > 180 && g > 180 && b < 100) return 'yellow';
+        
+        console.log('[SPIKE Advisor] ❌ No RGB color match for:', { r, g, b });
+      }
+    }
   
-  // Method 5: Check for specific workspace blocks (like "when program starts")
-  if (blockText.includes('when program starts')) {
-    console.log('[SPIKE Advisor] Found "when program starts" block (definitely workspace)');
+  return null;
+}
+
+// Helper function to check if a block is meaningless and should be filtered out
+function isMeaninglessBlock(text: string): boolean {
+  const trimmedText = text.trim().toLowerCase();
+  
+  // Skip blocks that are just numbers and colors (like "0 white")
+  if (/^\d+\s+(white|black|red|blue|green|yellow|pink)$/i.test(trimmedText)) {
     return true;
   }
   
-  // Method 6: Check if block is in the main workspace area (not toolbox)
-  const mainWorkspace = document.querySelector('.blocklyMainWorkspaceDiv');
-  if (mainWorkspace) {
-    const workspaceRect = mainWorkspace.getBoundingClientRect();
-    
-    // Check if block is within the main workspace bounds
-    if (rect.left >= workspaceRect.left && 
-        rect.top >= workspaceRect.top &&
-        rect.right <= workspaceRect.right &&
-        rect.bottom <= workspaceRect.bottom) {
-      console.log('[SPIKE Advisor] Block within main workspace bounds:', blockText);
-      return true;
-    } else {
-      console.log('[SPIKE Advisor] Block outside main workspace bounds:', blockText);
-      return false;
-    }
-  }
-  
-  // Method 7: Check if block has meaningful content and is not in a flyout
-  if (blockText.trim() && blockText.trim().length > 0) {
-    // Skip empty operator blocks (likely palette)
-    if (!blockText.trim() && blockId.includes('operator_')) {
-      console.log('[SPIKE Advisor] Empty operator block in palette:', blockId);
-      return false;
-    }
-    
-    // Additional check: make sure the block is actually visible to the user
-    const computedStyle = window.getComputedStyle(element);
-    if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden' || computedStyle.opacity === '0') {
-      console.log('[SPIKE Advisor] Block is hidden:', blockText);
-      return false;
-    }
-    
-    // If it has meaningful text and is not in a flyout, it's likely in workspace
-    console.log('[SPIKE Advisor] Block with meaningful text (likely workspace):', blockText);
+  // Skip blocks that are just single numbers or colors
+  if (/^\d+$/i.test(trimmedText) || /^(white|black|red|blue|green|yellow|pink)$/i.test(trimmedText)) {
     return true;
   }
   
-  console.log('[SPIKE Advisor] Block appears to be in palette:', x, y, blockText);
+  // Skip blocks with only non-alphanumeric characters
+  if (!/[a-zA-Z0-9]/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Skip blocks that are too short and don't contain meaningful words
+  if (trimmedText.length < 4 && !['if', 'go', 'run', 'stop'].includes(trimmedText)) {
+    return true;
+  }
+  
+  // Skip blocks that look like UI elements or tool tips
+  if (trimmedText.includes('blockly') || trimmedText.includes('tooltip') || trimmedText.includes('flyout')) {
+    return true;
+  }
+  
   return false;
 }
 
-// Global variables for real-time monitoring
-let blockDetectionObserver: MutationObserver | null = null;
-let lastBlockCount = 0;
-let detectionTimeout: NodeJS.Timeout | null = null;
-let isInitialized = false; // Track if content script is ready
-
-// Function to clear cached data and reset detection state
-function clearCachedBlockData() {
-  console.log('[SPIKE Advisor] Clearing cached block data...');
-  lastBlockCount = 0;
-  if (detectionTimeout) {
-    clearTimeout(detectionTimeout);
-    detectionTimeout = null;
-  }
-  // Force a fresh detection
-  setTimeout(() => {
-    updateBlockData();
-  }, 100);
+// Helper function to detect block category from text content
+function detectBlockCategory(text: string): string {
+  const lowerText = text.toLowerCase();
+  
+  if (lowerText.includes('when') && lowerText.includes('start')) return 'flipperevents';
+  if (lowerText.includes('if') || (lowerText.includes('closer than') && lowerText.includes('then'))) return 'flippercontrol';
+  if (lowerText.includes('closer than') && !lowerText.includes('if')) return 'flippersensors';
+  if (lowerText.includes('motor') || lowerText.includes('speed') || lowerText.includes('start motor')) return 'flippermotor';
+  if (lowerText.includes('move') || lowerText.includes('rotation')) return 'movement';
+  if (lowerText.includes('forever') || lowerText.includes('repeat')) return 'flippercontrol';
+  if (lowerText.includes('light') || lowerText.includes('turn on')) return 'flipperlight';
+  if (lowerText.includes('sound') || lowerText.includes('beep')) return 'flippersound';
+  
+  return 'unknown';
 }
 
-// Function to start real-time block monitoring
-function startRealTimeBlockMonitoring() {
-  console.log('[SPIKE Advisor] Starting real-time block monitoring...');
+// Helper function to clean and format block text
+function cleanBlockText(text: string, detectedColor?: string | null): string {
+  // Remove extra whitespace and normalize
+  let cleaned = text.replace(/\s+/g, ' ').trim();
   
-  // Stop any existing observer
-  if (blockDetectionObserver) {
-    blockDetectionObserver.disconnect();
-  }
-  
-  // Create a new MutationObserver to watch for changes
-  blockDetectionObserver = new MutationObserver((mutations) => {
-    // Check if any mutations are related to Blockly blocks
-    const hasBlockChanges = mutations.some(mutation => {
-      // Check if any added/removed nodes are Blockly blocks
-      const addedBlocks = Array.from(mutation.addedNodes).some(node => 
-        node.nodeType === Node.ELEMENT_NODE && 
-        (node as Element).getAttribute && 
-        (node as Element).getAttribute('data-id') &&
-        (node as Element).classList.contains('blocklyDraggable')
-      );
-      
-      const removedBlocks = Array.from(mutation.removedNodes).some(node => 
-        node.nodeType === Node.ELEMENT_NODE && 
-        (node as Element).getAttribute && 
-        (node as Element).getAttribute('data-id') &&
-        (node as Element).classList.contains('blocklyDraggable')
-      );
-      
-      // Check if attributes changed on existing blocks
-      const attributeChanges = mutation.type === 'attributes' && 
-        mutation.target.nodeType === Node.ELEMENT_NODE &&
-        (mutation.target as Element).getAttribute('data-id') &&
-        (mutation.target as Element).classList.contains('blocklyDraggable');
-      
-      return addedBlocks || removedBlocks || attributeChanges;
-    });
-    
-    if (hasBlockChanges) {
-      console.log('[SPIKE Advisor] Block changes detected, updating...');
-      
-      // Debounce the update to avoid too many rapid updates
-      if (detectionTimeout) {
-        clearTimeout(detectionTimeout);
+  // Handle specific SPIKE Prime block patterns
+  if (cleaned.includes('when program starts')) {
+    cleaned = 'when program starts';
+  } else if (cleaned.includes('set speed')) {
+    // Extract motor and speed: "B set speed to 75 %"
+    const motorMatch = cleaned.match(/([A-F])/);
+    const speedMatch = cleaned.match(/(\d+)/);
+    if (motorMatch && speedMatch) {
+      cleaned = `Motor ${motorMatch[1]}: set speed to ${speedMatch[1]}%`;
+    }
+  } else if (cleaned.includes('forever')) {
+    cleaned = 'forever';
+  } else if (cleaned.includes('repeat') && cleaned.includes('10')) {
+    cleaned = 'repeat 10 times';
+  } else if (cleaned.includes('turn on') && cleaned.includes('second')) {
+    const timeMatch = cleaned.match(/(\d+)/);
+    const time = timeMatch ? timeMatch[1] : '2';
+    cleaned = `turn on for ${time} seconds`;
+  } else if (cleaned.includes('if') || cleaned.includes('then')) {
+    // Handle conditional blocks - extract the complete if-then structure
+    if (cleaned.includes('closer than')) {
+      const distanceMatch = cleaned.match(/(\d+)/);
+      const distance = distanceMatch ? distanceMatch[1] : 'unknown';
+      cleaned = `if sensor closer than ${distance}%`;
+    } else if (cleaned.includes('color') && cleaned.includes('stop motor')) {
+      // Handle if-then with color sensor and motor action
+      const motorMatch = cleaned.match(/([A-F])/);
+      const colorMatch = cleaned.match(/(red|blue|light blue|green|yellow|white|black|pink|no color)/i);
+      if (motorMatch && colorMatch) {
+        cleaned = `if Motor ${motorMatch[1]} is color ${colorMatch[1].toLowerCase()} then stop motor`;
+      } else if (motorMatch) {
+        cleaned = `if Motor ${motorMatch[1]} is color (unknown) then stop motor`;
+      } else {
+        cleaned = 'if color condition then stop motor';
       }
-      
-      detectionTimeout = setTimeout(() => {
-        updateBlockData();
-      }, 500); // Wait 500ms after last change before updating
-    }
-  });
-  
-  // Start observing the document for changes
-  blockDetectionObserver.observe(document.body, {
-    childList: true,      // Watch for added/removed nodes
-    subtree: true,        // Watch the entire DOM tree
-    attributes: true,     // Watch for attribute changes
-    attributeFilter: ['data-id', 'transform', 'class'] // Only watch relevant attributes
-  });
-  
-  console.log('[SPIKE Advisor] Real-time monitoring active');
-}
-
-// Update block data (called periodically)
-async function updateBlockData() {
-  if (!isExtensionContextValid()) {
-    console.log('[SPIKE Advisor] Extension context not valid, skipping update');
-    return;
-  }
-
-  try {
-    console.log('[SPIKE Advisor] Updating block data...');
-    
-    // Extract blocks from DOM
-    const blocks = extractBlocksFromDOM();
-    const workspaceBlocks = blocks.filter(block => block.isInWorkspace);
-    
-    // Check if block count has changed
-    if (workspaceBlocks.length !== lastBlockCount) {
-      console.log('[SPIKE Advisor] Block count changed from', lastBlockCount, 'to', workspaceBlocks.length);
-      lastBlockCount = workspaceBlocks.length;
-      
-      // Send updated data to popup
-      sendBlockDataToPopup();
     } else {
-      console.log('[SPIKE Advisor] Block count unchanged:', workspaceBlocks.length);
+      cleaned = 'if (condition) then (action)';
     }
+  } else if (cleaned.includes('closer than') && !cleaned.includes('if')) {
+    // Handle sensor blocks separately
+    const distanceMatch = cleaned.match(/(\d+)/);
+    const distance = distanceMatch ? distanceMatch[1] : 'unknown';
+    cleaned = `sensor: closer than ${distance}%`;
+    } else if (cleaned.includes('is color') || (cleaned.includes('color') && cleaned.match(/[A-F]/))) {
+    // Handle color sensor blocks specifically
+    const motorMatch = cleaned.match(/([A-F])/);
     
-  } catch (error) {
-    console.error('[SPIKE Advisor] Error updating block data:', error);
+    // First try to use the visually detected color, then fall back to text color
+    const textColorMatch = cleaned.match(/(red|blue|light blue|green|yellow|white|black|pink|no color)/i);
+    const finalColor = detectedColor || (textColorMatch ? textColorMatch[1] : null);
+    
+    // If we have both motor and color, use them
+    if (motorMatch && finalColor) {
+      cleaned = `Sensor ${motorMatch[1]} is color ${finalColor.toLowerCase()}`;
+      console.log('[SPIKE Advisor] ✅ Used color:', finalColor, '(detected:', detectedColor, ', text:', textColorMatch?.[1], ')');
+    } else if (motorMatch) {
+      // If we have motor but no detected color, indicate unknown
+      cleaned = `Sensor ${motorMatch[1]} is color (unknown)`;
+      console.log('[SPIKE Advisor] ⚠️ Motor detected but no color found for:', motorMatch[1]);
+    } else {
+      cleaned = 'color sensor';
+    }
+  } else if (cleaned.includes('start motor')) {
+    // Handle start motor blocks
+    const motorMatch = cleaned.match(/([A-F])/);
+    const directionMatch = cleaned.match(/(forward|backward)/);
+    if (motorMatch) {
+      const direction = directionMatch ? directionMatch[1] : 'forward';
+      cleaned = `Motor ${motorMatch[1]}: start motor ${direction}`;
+    }
+  } else if (cleaned.includes('move') && cleaned.includes('for') && cleaned.includes('rotation')) {
+    // Handle move for rotations blocks
+    const rotationsMatch = cleaned.match(/(\d+)/);
+    const rotations = rotationsMatch ? rotationsMatch[1] : 'unknown';
+    cleaned = `Move forward for ${rotations} rotations`;
   }
+  
+  return cleaned;
 }
 
-// Send block data to popup (only when extension context is valid)
-function sendBlockDataToPopup() {
-  if (!isExtensionContextValid()) {
-    return;
-  }
-
+// Send block data to popup
+function sendBlockDataToPopup(blocks: any[]) {
+  if (!isExtensionContextValid()) return;
+  
   try {
-    // Get current block data
-    const blocks = extractBlocksFromDOM();
-    const workspaceBlocks = blocks.filter(block => block.isInWorkspace);
-    
-    // Create a summary text for the blocks
-    const blockText = workspaceBlocks.map(block => block.text).join(' | ');
-    
     const data = {
-      blocks: workspaceBlocks,
-      text: blockText,
-      timestamp: Date.now()
+      blocks: blocks,
+      text: blocks.map(b => b.text).join(' | '),
+      timestamp: Date.now(),
+      method: 'Visual Workspace Detection'
     };
     
-    console.log('[SPIKE Advisor] Sending', workspaceBlocks.length, 'blocks to popup');
-    
-    // Send to popup if it's open
     chrome.runtime.sendMessage({
       type: 'BLOCK_DATA_UPDATE',
       data: data
@@ -423,55 +568,57 @@ function sendBlockDataToPopup() {
       // Popup might not be open, that's okay
     });
     
+    console.log(`[SPIKE Advisor] ✅ Sent ${blocks.length} blocks to popup (via Visual Detection)`);
   } catch (error) {
-    console.error('[SPIKE Advisor] Error sending block data to popup:', error);
+    console.error('[SPIKE Advisor] ❌ Error sending block data:', error);
   }
+}
+
+// Main detection and monitoring
+function startVisualBlockDetection() {
+  console.log('[SPIKE Advisor] 🚀 Starting visual workspace block detection...');
+  
+  const performDetection = () => {
+    const blocks = extractVisibleWorkspaceBlocks();
+    sendBlockDataToPopup(blocks);
+  };
+  
+  // Initial detection after a delay
+  setTimeout(performDetection, 2000);
+  
+  // Set up periodic monitoring every 3 seconds
+  setInterval(performDetection, 3000);
+  
+  // Set up message listener for manual refresh
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === "REQUEST_BLOCKS") {
+      console.log('[SPIKE Advisor] 🔄 Manual refresh requested');
+      const currentBlocks = extractVisibleWorkspaceBlocks();
+      sendResponse({
+        blocks: currentBlocks,
+        text: currentBlocks.map(b => b.text).join(' | '),
+        timestamp: Date.now()
+      });
+    }
+  });
 }
 
 // Initialize the script
-async function initializeScript() {
-  try {
-    console.log('[SPIKE Advisor] Initializing content script...');
-    
-    // Wait for the page to be ready
-    await waitForPageReady();
-    
-    // Wait for Blockly DOM to be available
-    await waitForBlocklyDOM();
-    
-    // Clear any cached data to prevent phantom blocks
-    clearCachedBlockData();
-    
-    // Start real-time monitoring
-    startRealTimeBlockMonitoring();
-    
-    // Set up message listener for popup requests
-    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-      if (message.type === "REQUEST_BLOCKS") {
-        console.log('[SPIKE Advisor] Received REQUEST_BLOCKS from popup');
-        const currentBlocks = extractBlocksFromDOM();
-        const workspaceBlocks = currentBlocks.filter(block => block.isInWorkspace);
-        const blockText = workspaceBlocks.map(block => block.text).join(' ');
-        
-        sendResponse({
-          blocks: workspaceBlocks,
-          blockText: blockText,
-          initialized: isInitialized
-        });
-      }
-    });
-    
-    isInitialized = true;
-    console.log('[SPIKE Advisor] Content script initialized successfully');
-    
-  } catch (error) {
-    console.error('[SPIKE Advisor] Error initializing script:', error);
+function initialize() {
+  if (!isExtensionContextValid()) {
+    console.log('[SPIKE Advisor] ❌ Extension context not valid, skipping initialization');
+    return;
   }
+  
+  console.log('[SPIKE Advisor] 🎯 Content script loaded - Visual Workspace Detection');
+  
+  // Start detection after DOM is ready
+  setTimeout(startVisualBlockDetection, 1000);
 }
 
-// Start the script when the page loads
+// Start when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => initializeScript());
+  document.addEventListener('DOMContentLoaded', initialize);
 } else {
-  initializeScript();
+  initialize();
 } 

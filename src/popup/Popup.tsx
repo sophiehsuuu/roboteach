@@ -133,6 +133,73 @@ export default function Popup() {
   const [blockText, setBlockText] = useState('');
   const [blockData, setBlockData] = useState<any[]>([]);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [isBlockPanelCollapsed, setIsBlockPanelCollapsed] = useState<boolean>(false);
+  const [aiSummary, setAiSummary] = useState<string>('');
+  
+  // Persistent cache that survives component remounts
+  const getAiSummaryCache = (): {[key: string]: string} => {
+    try {
+      const cached = sessionStorage.getItem('spike-ai-summary-cache');
+      return cached ? JSON.parse(cached) : {};
+    } catch {
+      return {};
+    }
+  };
+  
+  const setAiSummaryCache = (cache: {[key: string]: string}) => {
+    try {
+      sessionStorage.setItem('spike-ai-summary-cache', JSON.stringify(cache));
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  // Debug: Log when component mounts/unmounts
+  useEffect(() => {
+    console.log('[SPIKE Advisor] 🔄 Component mounted/remounted');
+    return () => {
+      console.log('[SPIKE Advisor] 💥 Component unmounting');
+    };
+  }, []);
+
+  // Helper function to create a simple hash of block content for comparison
+  function createBlocksHash(blocks: any[]): string {
+    if (!blocks || blocks.length === 0) return 'empty';
+    
+    // Create a super-stable hash using ONLY the text content (most stable property)
+    const blockTexts = blocks
+      .map(block => (block.text || '').trim())
+      .filter(text => text.length > 0)
+      .sort(); // Sort to make order-independent
+    
+    const hash = blockTexts.join('::');
+    console.log('[SPIKE Advisor] 📝 Super-stable hash from texts:', blockTexts);
+    console.log('[SPIKE Advisor] 🔑 Hash (first 100 chars):', hash.substring(0, 100) + '...');
+    console.log('[SPIKE Advisor] 📊 Block count:', blocks.length);
+    return hash;
+  }
+
+  // Modified function to only generate AI summary when blocks actually change
+  function generateAISummaryIfChanged(blocks: any[]) {
+    const newHash = createBlocksHash(blocks);
+    
+    console.log('[SPIKE Advisor] Hash comparison:');
+    const currentCache = getAiSummaryCache();
+    console.log('  Cache keys:', Object.keys(currentCache).length);
+    console.log('  Current hash: ', newHash.substring(0, 50) + '...');
+    
+    // PRIORITY 1: Check cache first - if we have this exact configuration, use it
+    if (currentCache[newHash]) {
+      console.log('[SPIKE Advisor] 🎯 Using cached AI summary - no API call needed');
+      console.log('[SPIKE Advisor] 📋 Cached summary:', currentCache[newHash]);
+      setAiSummary(currentCache[newHash]);
+      return;
+    }
+    
+    // PRIORITY 2: Only generate if this is truly a new configuration
+    console.log('[SPIKE Advisor] 🔄 New block configuration detected - generating AI summary');
+    generateAISummary(blocks);
+  }
 
   // Listen for messages from content script
   useEffect(() => {
@@ -144,6 +211,8 @@ export default function Popup() {
         setBlockData(msg.data.blocks || []);
         setBlockText(msg.data.text || '');
         setDebugInfo(`🔄 Real-time update: ${msg.data.blocks?.length || 0} blocks detected`);
+        // Generate AI summary only when blocks actually change
+        generateAISummaryIfChanged(msg.data.blocks || []);
       }
     }
 
@@ -159,6 +228,8 @@ export default function Popup() {
             setBlockData(response.blocks || []);
             setBlockText(response.text || "");
             setDebugInfo(`📊 Initial load: ${response.blocks?.length || 0} blocks`);
+            // Generate AI summary on initial load
+            generateAISummaryIfChanged(response.blocks || []);
           } else {
             setDebugInfo('❌ No response from content script - trying again in 1 second...');
             // Try again after a short delay
@@ -169,6 +240,8 @@ export default function Popup() {
                   setBlockData(retryResponse.blocks || []);
                   setBlockText(retryResponse.text || "");
                   setDebugInfo(`📊 Retry load: ${retryResponse.blocks?.length || 0} blocks`);
+                  // Generate AI summary on retry load
+                  generateAISummaryIfChanged(retryResponse.blocks || []);
                 } else {
                   setDebugInfo('❌ Still no response - content script may not be ready');
                 }
@@ -186,6 +259,62 @@ export default function Popup() {
     };
   }, []);
 
+  // Generate AI summary of what the code does
+  async function generateAISummary(blocks: any[]) {
+    if (!blocks || blocks.length === 0) {
+      setAiSummary('等待積木資料... (Waiting for block data)');
+      return;
+    }
+
+    try {
+          console.log('[AI Summary] 📋 Generating summary for blocks:', blocks);
+    console.log('[AI Summary] 📝 Block texts being sent:', blocks.map(b => b.text));
+    console.log('[AI Summary] 🏷️ Block categories being sent:', blocks.map(b => b.category));
+    console.log('[AI Summary] 🔍 Full block data being sent:', JSON.stringify(blocks, null, 2));
+      setAiSummary('正在生成摘要... (Generating summary...)');
+      
+      const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd3VscXNkYnJwdHJydGtsdWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NjM4NzEsImV4cCI6MjA2OTIzOTg3MX0.ajT317ynsqT0OWwOXroU0GggATbebIRcC5F5nAxVTMg'
+        },
+        body: JSON.stringify({
+          code: {
+            summary: "請分析這個程式的邏輯並用簡短的中文描述機器人會做什麼",
+            pickedSymptom: "program-summary",
+            blockText: blocks.map(b => b.text).join(' | '),
+            blocks: blocks
+          },
+          lang: "zh-Hant"
+        })
+      });
+
+      console.log('[AI Summary] Response status:', response.status);
+      const data = await response.json();
+      console.log('[AI Summary] Response data:', data);
+      
+      if (data.advice) {
+        setAiSummary(data.advice);
+        
+        // Cache the AI summary for this block configuration
+        const currentHash = createBlocksHash(blocks);
+        const currentCache = getAiSummaryCache();
+        setAiSummaryCache({
+          ...currentCache,
+          [currentHash]: data.advice
+        });
+        console.log('[AI Summary] ✅ Cached AI summary for hash:', currentHash.substring(0, 50) + '...');
+      } else {
+        console.error('[AI Summary] No advice in response:', data);
+        setAiSummary('無法生成摘要 (Unable to generate summary)');
+      }
+    } catch (error) {
+      console.error('[AI Summary] Error generating AI summary:', error);
+      setAiSummary('摘要生成失敗 (Summary generation failed)');
+    }
+  }
+
   // Manual refresh function
   function handleRefresh() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs: any[]) => {
@@ -195,12 +324,27 @@ export default function Popup() {
             setBlockData(response.blocks || []);
             setBlockText(response.text || "");
             setDebugInfo(`🔄 Manual refresh: ${response.blocks?.length || 0} blocks`);
+            // Generate AI summary only when blocks actually change
+            generateAISummaryIfChanged(response.blocks || []);
           } else {
             setDebugInfo('❌ No response from content script');
           }
         });
       }
     });
+  }
+
+  // Clear AI cache function
+  function clearAiCache() {
+    console.log('[SPIKE Advisor] 🗑️ Clearing AI summary cache');
+    setAiSummaryCache({});
+    sessionStorage.removeItem('spike-ai-summary-cache');
+    setAiSummary('');
+    // Force regeneration with current blocks
+    if (blockData.length > 0) {
+      console.log('[SPIKE Advisor] 🔄 Forcing fresh AI summary generation');
+      generateAISummary(blockData);
+    }
   }
 
   function handleDropdownChange(e: any) {
@@ -282,6 +426,21 @@ export default function Popup() {
         return false;
       }
       
+      // Skip blocks with very short or meaningless text
+      if (block.text.length < 3) {
+        return false;
+      }
+      
+      // Skip blocks that seem to be phantom/duplicate (check for sensible content)
+      if (block.text.includes('when closer than') && !block.text.includes('sensor')) {
+        return false;
+      }
+      
+      // Only keep blocks that are actually marked as being in workspace
+      if (block.isInWorkspace === false) {
+        return false;
+      }
+      
       return true;
     });
 
@@ -305,29 +464,67 @@ export default function Popup() {
     const getBlockDescription = (block: any) => {
       const text = block.text || '';
       const category = block.category || '';
+      const type = block.type || '';
       
-      // Handle "when program starts" block specifically - show only the event, not connected blocks
-      if (text.includes('when program starts')) {
-        return 'When program starts:';
+      // Handle specific block types with simplified descriptions
+      if (type === 'event_start' || text.includes('when program starts')) {
+        return 'Event: when program starts';
+      }
+      
+      if (type === 'motor_speed' && block.motor && block.speed) {
+        return `Motor ${block.motor}: set speed to ${block.speed}%`;
+      }
+      
+      if (type === 'control_forever') {
+        return 'Control: forever loop';
+      }
+      
+      if (type === 'light_on' && block.duration) {
+        return `Light: turn on for ${block.duration} seconds`;
       }
       
       // Handle blocks that might have "when program starts" in their text but are not the event block
       if (category === 'flipperevents') {
         if (text.includes('when program starts')) {
-          return 'When program starts:';
+          // Always return just the event, regardless of any extra text
+          return 'Event: when program starts';
         }
         if (text.includes('when')) {
-          return `Event - ${text}`;
+          return `Event: ${text}`;
         }
-        return text;
+        return `Event: ${text}`;
       }
       
       if (category === 'flippermotor') {
         // Motor blocks - need to parse more carefully
+        // Extract motor port (A, B, C, etc.) from text
+        const motorMatch = text.match(/\b([A-F])\b/);
+        const motorPort = motorMatch ? motorMatch[1] : 'A';
+        
         if (text.includes('set speed')) {
-          const speedMatch = text.match(/(\d+)/);
-          const speed = speedMatch ? speedMatch[1] : '75';
-          return `Motor A - set speed to ${speed}%`;
+          // Multiple approaches to extract speed
+          let speed = null;
+          
+          // Method 1: Look for pattern "set speed to NUMBER"
+          const setSpeedMatch = text.match(/set speed to\s+(-?\d+)/);
+          if (setSpeedMatch) {
+            speed = setSpeedMatch[1];
+          }
+          
+          // Method 2: Look for just a number near "set speed"
+          if (!speed) {
+            const numberMatch = text.match(/(-?\d+)/);
+            if (numberMatch) {
+              speed = numberMatch[1];
+            }
+          }
+          
+          // Method 3: Default fallback
+          if (!speed) {
+            speed = '75';
+          }
+          
+          return `Motor ${motorPort}: set speed to ${speed}%`;
         }
         if (text.includes('run')) {
           // Look for direction indicators
@@ -351,7 +548,7 @@ export default function Popup() {
             unit = 'seconds';
           }
           
-          return `Motor A - run ${direction} for ${amount} ${unit}`;
+          return `Motor ${motorPort}: run ${direction} for ${amount} ${unit}`;
         }
         if (text.includes('start motor')) {
           let direction = '';
@@ -362,30 +559,29 @@ export default function Popup() {
           } else {
             direction = 'forward';
           }
-          return `Motor A - start motor ${direction}`;
+          return `Motor ${motorPort}: start motor ${direction}`;
         }
         if (text.includes('stop motor')) {
-          return 'Motor A - stop motor';
+          return `Motor ${motorPort}: stop motor`;
         }
         if (text.includes('go shortest path')) {
-          return 'Motor A - go shortest path to position';
+          return `Motor ${motorPort}: go shortest path to position`;
         }
         if (text.includes('turn for')) {
           const amountMatch = text.match(/(\d+)/);
           const amount = amountMatch ? amountMatch[1] : '1';
-          return `Motor A - turn for ${amount} rotations`;
+          return `Motor ${motorPort}: turn for ${amount} rotations`;
         }
         if (text.includes('go to position')) {
-          return 'Motor A - go to position';
+          return `Motor ${motorPort}: go to position`;
         }
         
-        // If we just have "A" or basic motor text, try to infer from the block ID or shape
-        if (text === 'A' || text.trim() === 'A') {
-          // Try to get more context from the block element or ID
-          return `Motor A - motor control block`;
+        // If we just have a motor port letter, try to infer the action
+        if (text.trim().match(/^[A-F]$/)) {
+          return `Motor ${motorPort}: motor control block`;
         }
         
-        return `Motor A - ${text}`;
+        return `Motor ${motorPort}: ${text}`;
       }
       
       if (category === 'flippermove') {
@@ -453,11 +649,25 @@ export default function Popup() {
       }
       
       if (category === 'flippersensors') {
-        return `Sensor - ${text}`;
+        return text; // Text is already formatted as "Sensor A is color red"
       }
       
       if (category === 'flippercontrol') {
-        return `Control - ${text}`;
+        if (text.includes('forever')) {
+          return 'Control: forever loop';
+        }
+        if (text.includes('repeat')) {
+          const countMatch = text.match(/(\d+)/);
+          const count = countMatch ? countMatch[1] : '';
+          return `Control: repeat ${count} times`;
+        }
+        if (text.includes('if')) {
+          return 'Control: if condition';
+        }
+        if (text.includes('wait')) {
+          return 'Control: wait';
+        }
+        return `Control: ${text}`;
       }
       
       if (category === 'flipperoperator') {
@@ -481,66 +691,121 @@ export default function Popup() {
 
     return (
       <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#333', fontSize: '16px' }}>
-          🧩 檢測到的積木設定 (Detected Blocks) ({workspaceBlocks.length})
-        </h3>
-        
-        <div style={{ marginBottom: '10px' }}>
-          <button 
-            onClick={handleRefresh}
-            style={{
-              background: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '6px 12px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              marginRight: '8px'
-            }}
-          >
-            🔄 Refresh
-          </button>
-          <span style={{ fontSize: '11px', color: '#666' }}>
-            Auto-updates when blocks change
+        {/* Collapsible Header */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            padding: '8px 0',
+            borderBottom: '1px solid #e9ecef'
+          }}
+          onClick={() => setIsBlockPanelCollapsed(!isBlockPanelCollapsed)}
+        >
+          <h3 style={{ margin: '0', color: '#333', fontSize: '16px' }}>
+            🧩 檢測到的積木設定 (Detected Blocks) ({workspaceBlocks.length})
+          </h3>
+          <span style={{ fontSize: '14px', color: '#666' }}>
+            {isBlockPanelCollapsed ? '▼' : '▲'}
           </span>
         </div>
         
-        {Object.entries(blocksByCategory).map(([category, blocks]) => (
-          <div key={category} style={{ marginBottom: '15px' }}>
-            <h4 style={{ 
-              margin: '0 0 8px 0', 
-              color: '#555', 
-              fontSize: '14px',
-              fontWeight: '600',
-              textTransform: 'capitalize'
-            }}>
-              {category.replace('flipper', '')} Blocks:
-            </h4>
-                         {blocks.map((block: any) => (
-              <div key={block.id} style={{
-                background: '#f8f9fa',
-                border: '1px solid #e9ecef',
-                borderRadius: '6px',
-                padding: '8px 12px',
-                marginBottom: '6px',
-                fontSize: '13px',
-                color: '#495057'
-              }}>
-                <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                  {getBlockDescription(block)}
-                </div>
-                <div style={{ 
-                  fontSize: '11px', 
-                  color: '#6c757d',
-                  fontFamily: 'monospace'
+        {/* AI Summary */}
+        {!isBlockPanelCollapsed && (
+          <div style={{ 
+            margin: '10px 0', 
+            padding: '10px', 
+            background: '#e3f2fd', 
+            border: '1px solid #2196f3', 
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#1565c0'
+          }}>
+            <div style={{ fontWeight: '600', marginBottom: '5px' }}>
+              🤖 AI 程式摘要 (AI Program Summary):
+            </div>
+            <div>{aiSummary || '正在生成摘要... (Generating summary...)'}</div>
+          </div>
+        )}
+        
+        {/* Collapsible Content */}
+        {!isBlockPanelCollapsed && (
+          <>
+            <div style={{ marginBottom: '10px' }}>
+              <button 
+                onClick={handleRefresh}
+                style={{
+                  background: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  marginRight: '8px'
+                }}
+              >
+                🔄 Refresh
+              </button>
+              <button 
+                onClick={clearAiCache}
+                style={{
+                  background: '#ffc107',
+                  color: '#212529',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  marginRight: '8px'
+                }}
+                title="Clear AI cache and regenerate summary"
+              >
+                🗑️ Clear Cache
+              </button>
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                Auto-updates when blocks change
+              </span>
+            </div>
+            
+            {Object.entries(blocksByCategory).map(([category, blocks]) => (
+              <div key={category} style={{ marginBottom: '15px' }}>
+                <h4 style={{ 
+                  margin: '0 0 8px 0', 
+                  color: '#555', 
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  textTransform: 'capitalize'
                 }}>
-                  ID: {block.id?.substring(0, 8)}...
-                </div>
+                  {category.replace('flipper', '')} Blocks:
+                </h4>
+                {blocks.map((block: any) => (
+                  <div key={block.id} style={{
+                    background: '#f8f9fa',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    marginBottom: '6px',
+                    fontSize: '13px',
+                    color: '#495057'
+                  }}>
+                    <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                      {getBlockDescription(block)}
+                    </div>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: '#6c757d',
+                      fontFamily: 'monospace'
+                    }}>
+                      ID: {block.id?.substring(0, 8)}...
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
-          </div>
-        ))}
+          </>
+        )}
       </div>
     );
   };
@@ -690,6 +955,46 @@ export default function Popup() {
           <div style={{ marginTop: 4, color: "#856404" }}>{debugInfo}</div>
         </details>
       )}
+
+      {/* Footer */}
+      <div style={{
+        marginTop: '24px',
+        padding: '16px',
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+        borderRadius: '8px',
+        border: '1px solid #dee2e6',
+        textAlign: 'center'
+      }}>
+        <div style={{ 
+          fontSize: '14px', 
+          fontWeight: '600', 
+          color: '#495057',
+          marginBottom: '8px'
+        }}>
+          RoboYouth Taiwan
+        </div>
+        <div style={{ 
+          fontSize: '12px', 
+          color: '#6c757d',
+          marginBottom: '4px'
+        }}>
+          Created by Sophie Hsu
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#868e96',
+          marginBottom: '6px'
+        }}>
+          Beta version 0.1
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#007bff',
+          fontWeight: '500'
+        }}>
+          Support: roboyouthtaiwan@gmail.com
+        </div>
+      </div>
 
       <style>{`
         .block-summary {
