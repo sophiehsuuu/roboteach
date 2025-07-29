@@ -4,28 +4,7 @@ declare const chrome: any;
 // --- Strict keys for error types ---
 type ErrorTypeKey = "" | "motor" | "direction" | "not-starting" | "stop" | "sensor" | "other";
 
-// --- Styles ---
-const fontsBase = {
-  fontFamily: `'Poppins', 'Noto Sans TC', 'Microsoft JhengHei', Arial, Helvetica, sans-serif`
-};
-const headingStyle = {
-  ...fontsBase, color: "#2C3E50", fontWeight: 700, fontSize: 20, margin: "8px 0 2px 0", lineHeight: "1.2"
-};
-const subheadingStyle = {
-  ...fontsBase, color: "#2C3E50", fontWeight: 500, fontSize: 15, marginBottom: 6, letterSpacing: 0.5
-};
-const areaStyle = {
-  background: "#F5F5F5", borderRadius: "10px", padding: "8px", border: "1px solid #E0E0E0", marginBottom: 8,
-  fontSize: 14, color: "#2C3E50", width: "100%"
-};
-const secondaryBtn = {
-  background: "#92BDE7", color: "#2C3E50", border: "none",
-  padding: "9px 18px", borderRadius: 6, fontWeight: 600,
-  fontFamily: "Poppins, Arial, sans-serif", cursor: "pointer",
-  fontSize: 16, marginTop: 8, marginBottom: 5
-};
-const infoMsg = { color: "#FFD54F", fontWeight: 400, margin: "6px 0" };
-const normalMsg = { color: "#2C3E50", fontWeight: 400, margin: "6px 0" };
+
 
 const errorAdviceMap: Record<Exclude<ErrorTypeKey, "">, {
   zh: string;
@@ -153,21 +132,76 @@ export default function Popup() {
   const [loading, setLoading] = useState(false);
   const [blockText, setBlockText] = useState('');
   const [blockData, setBlockData] = useState<any[]>([]);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
+  // Listen for messages from content script
   useEffect(() => {
     function listener(msg: any) {
-      if (msg.type === "SPIKE_BLOCK_STRUCTURED") {
-        setBlockData(msg.payload.blocks || []);
-        setBlockText(msg.payload.text || "");
-      } else if (msg.type === "SPIKE_BLOCK_UPDATE") {
-        setBlockText(msg.payload);
+      console.log('[SPIKE Advisor Popup] Received message:', msg);
+      
+      if (msg.type === 'BLOCK_DATA_UPDATE') {
+        console.log('[SPIKE Advisor Popup] Updating block data:', msg.data.blocks?.length, 'blocks');
+        setBlockData(msg.data.blocks || []);
+        setBlockText(msg.data.text || '');
+        setDebugInfo(`🔄 Real-time update: ${msg.data.blocks?.length || 0} blocks detected`);
       }
     }
-    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener(listener);
-      return () => chrome.runtime.onMessage.removeListener(listener);
-    }
+
+    chrome.runtime.onMessage.addListener(listener);
+    
+    // Request initial data when popup opens
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs: any[]) => {
+      if (tabs[0] && tabs[0].url?.includes('spike.legoeducation.com')) {
+        console.log('[SPIKE Advisor Popup] Requesting initial data from content script...');
+        chrome.tabs.sendMessage(tabs[0].id, { type: "REQUEST_BLOCKS" }, (response: any) => {
+          console.log('[SPIKE Advisor Popup] Received initial response:', response);
+          if (response && response.blocks) {
+            setBlockData(response.blocks || []);
+            setBlockText(response.text || "");
+            setDebugInfo(`📊 Initial load: ${response.blocks?.length || 0} blocks`);
+          } else {
+            setDebugInfo('❌ No response from content script - trying again in 1 second...');
+            // Try again after a short delay
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tabs[0].id, { type: "REQUEST_BLOCKS" }, (retryResponse: any) => {
+                console.log('[SPIKE Advisor Popup] Retry response:', retryResponse);
+                if (retryResponse && retryResponse.blocks) {
+                  setBlockData(retryResponse.blocks || []);
+                  setBlockText(retryResponse.text || "");
+                  setDebugInfo(`📊 Retry load: ${retryResponse.blocks?.length || 0} blocks`);
+                } else {
+                  setDebugInfo('❌ Still no response - content script may not be ready');
+                }
+              });
+            }, 1000);
+          }
+        });
+      } else {
+        setDebugInfo('⚠️ Not on SPIKE page');
+      }
+    });
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+    };
   }, []);
+
+  // Manual refresh function
+  function handleRefresh() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs: any[]) => {
+      if (tabs[0] && tabs[0].url?.includes('spike.legoeducation.com')) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: "REQUEST_BLOCKS" }, (response: any) => {
+          if (response) {
+            setBlockData(response.blocks || []);
+            setBlockText(response.text || "");
+            setDebugInfo(`🔄 Manual refresh: ${response.blocks?.length || 0} blocks`);
+          } else {
+            setDebugInfo('❌ No response from content script');
+          }
+        });
+      }
+    });
+  }
 
   function handleDropdownChange(e: any) {
     const val = e.target.value as ErrorTypeKey;
@@ -223,98 +257,560 @@ export default function Popup() {
     setLoading(false);
   };
 
-  function renderBlockSummary() {
-    if (!blockData?.length) return null;
+
+
+  // Render block summary in a cleaner format
+  const renderBlockSummary = () => {
+    console.log('[SPIKE Advisor Popup] renderBlockSummary called with blockData:', blockData);
+    
+    if (!blockData || blockData.length === 0) {
+      console.log('[SPIKE Advisor Popup] No block data, showing waiting message');
+      return <div style={{ color: '#666', fontStyle: 'italic' }}>等待積木資料... (Waiting for block data)</div>;
+    }
+
+    console.log('[SPIKE Advisor Popup] Processing', blockData.length, 'blocks');
+
+    // The blocks should already be filtered by the content script, but apply additional filtering if needed
+    const workspaceBlocks = blockData.filter((block: any) => {
+      // Skip blocks that are outside the visible workspace area (but allow negative x values)
+      if (block.x < -2000 || block.y < -2000 || block.x > 10000 || block.y > 10000) {
+        return false;
+      }
+      
+      // Skip empty operator blocks (likely palette)
+      if (!block.text.trim() && block.id && block.id.includes('operator_')) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    console.log('[SPIKE Advisor Popup] After filtering:', workspaceBlocks.length, 'workspace blocks');
+
+    if (workspaceBlocks.length === 0) {
+      return <div style={{ color: '#666', fontStyle: 'italic' }}>未檢測到積木 (No blocks detected)</div>;
+    }
+
+    // Group blocks by category for better organization
+    const blocksByCategory: { [key: string]: any[] } = {};
+    workspaceBlocks.forEach((block: any) => {
+      const category = block.category || 'unknown';
+      if (!blocksByCategory[category]) {
+        blocksByCategory[category] = [];
+      }
+      blocksByCategory[category].push(block);
+    });
+
+    // Function to get a meaningful block description
+    const getBlockDescription = (block: any) => {
+      const text = block.text || '';
+      const category = block.category || '';
+      
+      // Handle "when program starts" block specifically - show only the event, not connected blocks
+      if (text.includes('when program starts')) {
+        return 'When program starts:';
+      }
+      
+      // Handle blocks that might have "when program starts" in their text but are not the event block
+      if (category === 'flipperevents') {
+        if (text.includes('when program starts')) {
+          return 'When program starts:';
+        }
+        if (text.includes('when')) {
+          return `Event - ${text}`;
+        }
+        return text;
+      }
+      
+      if (category === 'flippermotor') {
+        // Motor blocks - need to parse more carefully
+        if (text.includes('set speed')) {
+          const speedMatch = text.match(/(\d+)/);
+          const speed = speedMatch ? speedMatch[1] : '75';
+          return `Motor A - set speed to ${speed}%`;
+        }
+        if (text.includes('run')) {
+          // Look for direction indicators
+          let direction = '';
+          if (text.includes('clockwise') || text.includes('forward')) {
+            direction = 'clockwise';
+          } else if (text.includes('counterclockwise') || text.includes('backward')) {
+            direction = 'counterclockwise';
+          } else {
+            direction = 'forward'; // default
+          }
+          
+          // Look for amount and unit
+          const amountMatch = text.match(/(\d+)/);
+          const amount = amountMatch ? amountMatch[1] : '1';
+          
+          let unit = 'rotations';
+          if (text.includes('degrees')) {
+            unit = 'degrees';
+          } else if (text.includes('seconds')) {
+            unit = 'seconds';
+          }
+          
+          return `Motor A - run ${direction} for ${amount} ${unit}`;
+        }
+        if (text.includes('start motor')) {
+          let direction = '';
+          if (text.includes('clockwise') || text.includes('forward')) {
+            direction = 'clockwise';
+          } else if (text.includes('counterclockwise') || text.includes('backward')) {
+            direction = 'counterclockwise';
+          } else {
+            direction = 'forward';
+          }
+          return `Motor A - start motor ${direction}`;
+        }
+        if (text.includes('stop motor')) {
+          return 'Motor A - stop motor';
+        }
+        if (text.includes('go shortest path')) {
+          return 'Motor A - go shortest path to position';
+        }
+        if (text.includes('turn for')) {
+          const amountMatch = text.match(/(\d+)/);
+          const amount = amountMatch ? amountMatch[1] : '1';
+          return `Motor A - turn for ${amount} rotations`;
+        }
+        if (text.includes('go to position')) {
+          return 'Motor A - go to position';
+        }
+        
+        // If we just have "A" or basic motor text, try to infer from the block ID or shape
+        if (text === 'A' || text.trim() === 'A') {
+          // Try to get more context from the block element or ID
+          return `Motor A - motor control block`;
+        }
+        
+        return `Motor A - ${text}`;
+      }
+      
+      if (category === 'flippermove') {
+        if (text.includes('move')) {
+          // Extract direction from the text
+          let direction = 'forward';
+          if (text.includes('backward') || text.includes('reverse')) {
+            direction = 'backward';
+          } else if (text.includes('left')) {
+            direction = 'left';
+          } else if (text.includes('right')) {
+            direction = 'right';
+          }
+          
+          // Extract amount and unit
+          const amountMatch = text.match(/(\d+)/);
+          const amount = amountMatch ? amountMatch[1] : '10';
+          
+          let unit = 'rotations';
+          if (text.includes('degrees')) {
+            unit = 'degrees';
+          } else if (text.includes('seconds')) {
+            unit = 'seconds';
+          } else if (text.includes('cm') || text.includes('centimeters')) {
+            unit = 'cm';
+          }
+          
+          return `Move ${direction} for ${amount} ${unit}`;
+        }
+        if (text.includes('start moving')) {
+          return 'Start moving';
+        }
+        if (text.includes('stop moving')) {
+          return 'Stop moving';
+        }
+        if (text.includes('steer')) {
+          const direction = text.includes('right') ? 'right' : text.includes('left') ? 'left' : '';
+          const angle = text.match(/\d+/)?.[0] || '30';
+          return `Steer ${direction} ${angle}°`;
+        }
+        return text;
+      }
+      
+      if (category === 'flipperlight') {
+        if (text.includes('display')) {
+          return `Light display - ${text}`;
+        }
+        if (text.includes('set brightness')) {
+          const brightness = text.match(/\d+/)?.[0] || '75';
+          return `Set light brightness to ${brightness}%`;
+        }
+        return `Light - ${text}`;
+      }
+      
+      if (category === 'flippersound') {
+        if (text.includes('play sound')) {
+          const sound = text.match(/play sound(?: until done)?\s*(.+)/)?.[1] || 'sound';
+          return `Play sound: ${sound}`;
+        }
+        if (text.includes('beep')) {
+          const duration = text.match(/\d+/)?.[0] || '60';
+          return `Beep for ${duration} seconds`;
+        }
+        return `Sound - ${text}`;
+      }
+      
+      if (category === 'flippersensors') {
+        return `Sensor - ${text}`;
+      }
+      
+      if (category === 'flippercontrol') {
+        return `Control - ${text}`;
+      }
+      
+      if (category === 'flipperoperator') {
+        return `Operator - ${text}`;
+      }
+      
+      if (category === 'flippervariables') {
+        return `Variable - ${text}`;
+      }
+      
+      // Default fallback - clean up the text if it's too long
+      if (text.length > 100) {
+        // If text is very long, it might be combining multiple blocks
+        // Try to extract just the first meaningful part
+        const firstPart = text.split(' ').slice(0, 10).join(' ');
+        return `${firstPart}...`;
+      }
+      
+      return text || `${category} block`;
+    };
+
     return (
-      <details style={{
-        background: "#F5FAFF", border: "1px solid #BFE6FF", borderRadius: 7, padding: 7, fontSize: 12, marginBottom: 8
-      }}>
-        <summary style={{ cursor: "pointer", color: "#2293e8", fontWeight: 500, marginBottom: 2 }}>
-          🧩 檢測到的積木設定 (Detected Blocks) {blockData.length > 0 ? `(${blockData.length})` : ""}
-        </summary>
-        <div style={{ fontFamily: "monospace", whiteSpace: "pre", maxHeight: 80, overflow: "auto" }}>
-          {blockData.map((b, i) =>
-            `#${i + 1}: ${JSON.stringify(b)}\n`
-          )}
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#333', fontSize: '16px' }}>
+          🧩 檢測到的積木設定 (Detected Blocks) ({workspaceBlocks.length})
+        </h3>
+        
+        <div style={{ marginBottom: '10px' }}>
+          <button 
+            onClick={handleRefresh}
+            style={{
+              background: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              marginRight: '8px'
+            }}
+          >
+            🔄 Refresh
+          </button>
+          <span style={{ fontSize: '11px', color: '#666' }}>
+            Auto-updates when blocks change
+          </span>
         </div>
-      </details>
+        
+        {Object.entries(blocksByCategory).map(([category, blocks]) => (
+          <div key={category} style={{ marginBottom: '15px' }}>
+            <h4 style={{ 
+              margin: '0 0 8px 0', 
+              color: '#555', 
+              fontSize: '14px',
+              fontWeight: '600',
+              textTransform: 'capitalize'
+            }}>
+              {category.replace('flipper', '')} Blocks:
+            </h4>
+                         {blocks.map((block: any) => (
+              <div key={block.id} style={{
+                background: '#f8f9fa',
+                border: '1px solid #e9ecef',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                marginBottom: '6px',
+                fontSize: '13px',
+                color: '#495057'
+              }}>
+                <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                  {getBlockDescription(block)}
+                </div>
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: '#6c757d',
+                  fontFamily: 'monospace'
+                }}>
+                  ID: {block.id?.substring(0, 8)}...
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     );
-  }
+  };
 
   return (
-    <div style={{
-      ...fontsBase,
-      width: 336, minHeight: 480, background: "#F5F5F5", borderRadius: 18,
-      boxShadow: "0 4px 24px rgba(44,62,80,0.12)", padding: "18px 20px 10px 20px"
-    }}>
-      <div style={{ textAlign: "center", marginBottom: 8 }}>
-        <img src="../../../icons/robo48.png" width={44} style={{ borderRadius: "50%" }} alt="Avatar" />
+    <div style={{ width: 400, padding: 16, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div style={{ 
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
+        color: "white", 
+        padding: "12px 16px", 
+        borderRadius: "8px 8px 0 0", 
+        margin: "-16px -16px 16px -16px",
+        textAlign: "center"
+      }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>🤖 SPIKE AI Error Advisor</h2>
+        <p style={{ margin: "4px 0 0 0", fontSize: 12, opacity: 0.9 }}>
+          LEGO SPIKE Prime 智能除錯助手
+        </p>
       </div>
-      <div style={headingStyle}>歡迎來到 RoboYouth Taiwan!</div>
-      <div style={subheadingStyle}>問題小助手 • Error Helper</div>
-      <div style={{ ...fontsBase, color: "#2C3E50", fontSize: 13, margin: "14px 0 8px 0" }}>
-        請選擇一項症狀或問題獲得建議：<br />Select the issue you are facing to get help.
-      </div>
-      <select
-        style={{ ...areaStyle, fontWeight: 500, fontSize: 15 }}
-        value={selectedError}
-        onChange={handleDropdownChange}
-      >
-        {dropdownOptions.map(opt =>
-          <option key={opt.key} value={opt.key}>{opt.label}</option>
+
+      {/* Quick Fix Dropdown */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ 
+          color: "#2C3E50", 
+          fontSize: 13, 
+          margin: "14px 0 8px 0",
+          fontWeight: 500
+        }}>
+          請選擇一項症狀或問題獲得建議：<br />
+          Select the issue you are facing to get help.
+        </div>
+        <select
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            border: "1px solid #BDC3C7",
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 500,
+            fontFamily: "inherit"
+          }}
+          value={selectedError}
+          onChange={handleDropdownChange}
+        >
+          {dropdownOptions.map(opt =>
+            <option key={opt.key} value={opt.key}>{opt.label}</option>
+          )}
+        </select>
+        
+        {/* Quick Fix Output */}
+        {output && !loading && (
+          <div style={{
+            background: "#f8f9fa",
+            border: "1px solid #e9ecef",
+            borderRadius: 8,
+            padding: 12,
+            marginTop: 8,
+            fontSize: 13,
+            lineHeight: 1.4,
+            color: "#2C3E50"
+          }}>
+            <div style={{ whiteSpace: "pre-wrap" }}>{output}</div>
+          </div>
         )}
-      </select>
-      <div style={{
-        ...fontsBase,
-        color: "#4A90E2",
-        fontWeight: 500,
-        margin: "10px 0 4px 2px"
-      }}>
-        {selectedError && selectedError !== "other" && "💡 常見解決方案 (Quick Fix Tips):"}
-        {selectedError === "other" && "請用下方AI協助區提問"}
       </div>
-      <div style={{ color: "#2C3E50", fontSize: 14, minHeight: 62, whiteSpace: "pre-line", marginBottom: 2 }}>
-        {output && !loading && <div style={normalMsg}>{output}</div>}
-        {loading && <div style={infoMsg}>分析中… Processing…</div>}
-      </div>
-      {renderBlockSummary()}
-      <div style={{
-        borderTop: "1px solid #E0E0E0", paddingTop: 10, marginTop: 6, marginBottom: 2, fontSize: 13
-      }}>
-         若上述解決方案無法幫助你：
-         <br />If the above doesn't help, please describe your situation and ask the AI:
-         <textarea
-          placeholder="描述你遇到的狀況 Describe your issue (可用中文或英文)"
-          style={{ ...areaStyle, height: 44, resize: "vertical", fontSize: 14 }}
+
+      {/* AI Input Section */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ 
+          color: "#2C3E50", 
+          fontSize: 13, 
+          margin: "10px 0 4px 2px",
+          fontWeight: 500
+        }}>
+          若上述解決方案無法幫助你：<br />
+          If the above doesn't help, please describe your situation and ask the AI:
+        </div>
+        <textarea
           value={codeSummary}
-          onChange={e => setCodeSummary(e.target.value)}
+          onChange={(e) => setCodeSummary(e.target.value)}
+          placeholder="描述你的問題... / Describe your issue..."
+          style={{
+            width: "100%",
+            height: 60,
+            padding: 8,
+            border: "1px solid #ddd",
+            borderRadius: 6,
+            fontSize: 13,
+            resize: "vertical",
+            fontFamily: "inherit"
+          }}
         />
         <button
-          style={{ ...secondaryBtn, background: "#fff", color: "#4A90E2", marginTop: 6, border: "1px solid #92BDE7"}}
-          onClick={() =>
-            chrome.windows.create({
-              url: chrome.runtime.getURL("src/popup/index.html"),
-              type: "popup",
-              width: 380,
-              height: 550
-            })
-          }
+          onClick={handleAskAdvice}
+          disabled={loading || !codeSummary.trim()}
+          style={{
+            width: "100%",
+            padding: "8px 16px",
+            marginTop: 6,
+            background: loading ? "#ccc" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            fontSize: 13,
+            cursor: loading ? "not-allowed" : "pointer",
+            fontWeight: 500
+          }}
         >
-          📌 將 AI 小助手固定為視窗<br/>Pin AI Advisor as Window
-        </button>
-        <button style={secondaryBtn} onClick={handleAskAdvice} disabled={loading || !codeSummary.trim()}>
-          🤖 提問AI／Ask AI
+          {loading ? "🔄 處理中... / Processing..." : "🤖 提問AI / Ask AI"}
         </button>
       </div>
-      <div style={{
-        fontSize: 11, color: "#8fa6b6", marginTop: 16,
-        textAlign: "center", letterSpacing: 0.3
-      }}>
-        Powered by RoboYouth Taiwan • OpenAI<br />
-        <span style={{ color: "#92BDE7" }}>
-          Support: roboyouthtaiwan@gmail.com
-        </span>
-      </div>
+
+      {/* AI Advice Display */}
+      {output && !loading && selectedError && (
+        <div style={{
+          background: "#f8f9fa",
+          border: "1px solid #e9ecef",
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 16,
+          fontSize: 13,
+          lineHeight: 1.4
+        }}>
+          <h3 style={{ margin: "0 0 8px 0", color: "#495057", fontSize: 14 }}>
+            💡 AI 建議 / AI Advice
+          </h3>
+          <div style={{ whiteSpace: "pre-wrap" }}>{output}</div>
+        </div>
+      )}
+
+      {/* Block Summary */}
+      {renderBlockSummary()}
+
+      {/* Debug Info */}
+      {debugInfo && (
+        <details style={{
+          background: "#fff3cd",
+          border: "1px solid #ffeaa7",
+          borderRadius: 6,
+          padding: 8,
+          fontSize: 11,
+          marginTop: 8
+        }}>
+          <summary style={{ cursor: "pointer", color: "#856404", fontWeight: 500 }}>
+            🔍 Debug Info
+          </summary>
+          <div style={{ marginTop: 4, color: "#856404" }}>{debugInfo}</div>
+        </details>
+      )}
+
+      <style>{`
+        .block-summary {
+          background: #f8f9fa;
+          border: 1px solid #e9ecef;
+          border-radius: 8;
+          padding: 16;
+          margin-bottom: 16;
+        }
+        
+        .block-summary h3 {
+          margin: 0 0 12px 0;
+          color: #495057;
+          font-size: 16;
+          font-weight: 600;
+        }
+        
+        .block-summary h4 {
+          margin: 16px 0 8px 0;
+          color: #495057;
+          font-size: 14;
+          font-weight: 600;
+        }
+        
+        .blocks-display {
+          max-height: 200px;
+          overflow-y: auto;
+          margin-bottom: 12px;
+        }
+        
+        .block-item {
+          background: white;
+          border: 1px solid #dee2e6;
+          border-radius: 6;
+          padding: 8;
+          margin-bottom: 6;
+          font-size: 12;
+        }
+        
+        .block-header {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 4;
+          font-size: 10;
+          color: #6c757d;
+        }
+        
+        .block-number {
+          font-weight: 600;
+          color: #007bff;
+        }
+        
+        .block-category {
+          background: #e9ecef;
+          padding: 2px 6px;
+          border-radius: 3;
+          font-weight: 500;
+        }
+        
+        .block-shape {
+          background: #f8f9fa;
+          padding: 2px 6px;
+          border-radius: 3;
+          font-style: italic;
+        }
+        
+        .block-content {
+          font-size: 13;
+          color: #212529;
+          margin-bottom: 2;
+        }
+        
+        .block-id {
+          font-size: 10;
+          color: #6c757d;
+          font-family: monospace;
+        }
+        
+        .category-summary {
+          background: white;
+          border: 1px solid #dee2e6;
+          border-radius: 6;
+          padding: 12;
+        }
+        
+        .category-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 4px 0;
+          font-size: 12;
+        }
+        
+        .category-name {
+          font-weight: 500;
+          color: #495057;
+        }
+        
+        .category-count {
+          background: #007bff;
+          color: white;
+          padding: 2px 6px;
+          border-radius: 10;
+          font-size: 10;
+          font-weight: 600;
+        }
+        
+        .refresh-btn {
+          background: #28a745;
+          color: white;
+          border: none;
+          border-radius: 6;
+          padding: 8px 16px;
+          font-size: 12;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        
+        .refresh-btn:hover {
+          background: #218838;
+        }
+      `}</style>
     </div>
   );
 }
