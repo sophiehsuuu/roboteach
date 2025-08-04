@@ -171,24 +171,44 @@ const dropdownOptions: { key: ErrorTypeKey; label: string }[] = [
 ];
 
 // --- Smart advice helpers ---
-function getCustomMotorAdvice(blocks: any[]) {
+function getCustomMotorAdvice(blocks: any[], selectedLanguage: string) {
   if (!blocks?.length) return "";
-  const motorBlocks = blocks.filter(b => b.type && b.type.includes("motor"));
+  const motorBlocks = blocks.filter(b => 
+    b.category === 'flippermotor' || 
+    (b.type && b.type.includes("motor")) ||
+    (b.text && b.text.includes("motor"))
+  );
   if (!motorBlocks.length) {
-    return "❗ 目前積木中沒有任何馬達積木。\nNo motor blocks detected.\n";
+    return selectedLanguage === 'zh-TW' 
+      ? "❗ 目前積木中沒有任何馬達積木。\nNo motor blocks detected.\n"
+      : "❗ No motor blocks detected in current blocks.\n";
   }
   let out = "";
   motorBlocks.forEach(b => {
-    out += `• 馬達${b.MOTOR || b.PORT || ""} 速度: ${b.SPEED !== undefined ? b.SPEED + "%" : "未設定"}\n`;
-    if (b.SPEED !== undefined && Number(b.SPEED) < 70)
-      out += "↳ 速度偏低，建議嘗試設為80%以上。\n(Motor speed is low, recommend setting to 80%+)\n";
-    if (!b.MOTOR && !b.PORT)
-      out += "↳ 未指定端口，請選擇A/B。\n(No port set, please choose A/B)\n";
+    const motorPort = b.motor || b.MOTOR || b.PORT || "A";
+    const speed = b.speed || b.SPEED;
+    if (selectedLanguage === 'zh-TW') {
+      out += `• 馬達${motorPort} 速度: ${speed !== undefined ? speed + "%" : "未設定"}\n`;
+      if (speed !== undefined && Number(speed) < 70)
+        out += "↳ 速度偏低，建議嘗試設為80%以上。\n(Motor speed is low, recommend setting to 80%+)\n";
+      if (!motorPort || motorPort === "")
+        out += "↳ 未指定端口，請選擇A/B。\n(No port set, please choose A/B)\n";
+    } else {
+      out += `• Motor ${motorPort} speed: ${speed !== undefined ? speed + "%" : "not set"}\n`;
+      if (speed !== undefined && Number(speed) < 70)
+        out += "↳ Speed is low, recommend setting to 80%+\n";
+      if (!motorPort || motorPort === "")
+        out += "↳ No port specified, please choose A/B\n";
+    }
   });
   return out;
 }
 function getCustomDirectionAdvice(blocks: any[]) {
-  const motors = blocks.filter(b => b.type && b.type.includes("motor"));
+  const motors = blocks.filter(b => 
+    b.category === 'flippermotor' || 
+    (b.type && b.type.includes("motor")) ||
+    (b.text && b.text.includes("motor"))
+  );
   let advice = "";
   if (motors.length >= 2) {
     const first = motors[0], second = motors[1];
@@ -197,26 +217,44 @@ function getCustomDirectionAdvice(blocks: any[]) {
   }
   return advice;
 }
-function getCustomNotStartingAdvice(blocks: any[]) {
+function getCustomNotStartingAdvice(blocks: any[], selectedLanguage: string) {
   if (!blocks || !blocks.length) return "";
-  const hasStart = blocks.some(b => b.type && b.type.toLowerCase().includes("start"));
-  if (!hasStart) return "❗ 沒有偵測到『開始』積木。\nNo start block detected.\n";
+  const hasStart = blocks.some(b => 
+    (b.type === 'event_start') || 
+    (b.text && b.text.includes('when program starts'))
+  );
+  if (!hasStart) {
+    return selectedLanguage === 'zh-TW' 
+      ? "❗ 沒有偵測到『開始』積木。\nNo start block detected.\n"
+      : "❗ No start block detected.\n";
+  }
   return "";
 }
 function getCustomStopAdvice(blocks: any[]) {
-  const forever = blocks.filter(b => b.type && b.type.includes("forever"));
-  const stops = blocks.filter(b => /stop/i.test(b.type));
+  const forever = blocks.filter(b => 
+    b.type === 'control_forever' || 
+    (b.text && b.text.includes("forever"))
+  );
+  const stops = blocks.filter(b => 
+    (b.text && b.text.includes("stop")) ||
+    (b.type && b.type.includes("stop"))
+  );
   if (forever.length && !stops.length)
     return "↳ 積木有『永遠』循環但沒有適合的『停止』積木。\n(Has forever loop but no stop block.)\n";
   return "";
 }
 function getCustomSensorAdvice(blocks: any[]) {
-  const sensors = blocks.filter(b => b.type && b.type.includes("sensor"));
+  const sensors = blocks.filter(b => 
+    b.category === 'flippersensors' || 
+    (b.type && b.type.includes("sensor")) ||
+    (b.text && (b.text.includes("sensor") || b.text.includes("color") || b.text.includes("distance") || b.text.includes("touch")))
+  );
   if (!sensors.length)
     return "❗ 沒有偵測到任何感應器積木。\nNo sensor blocks found.\n";
   let out = "";
   sensors.forEach(b => {
-    out += `• 感應器${b.SENSOR || ""} 類型: ${b.type}`;
+    const sensorPort = b.sensor || b.SENSOR || "";
+    out += `• 感應器${sensorPort} 類型: ${b.type || b.category}`;
     if (b.COLOR) out += ` 顏色值: ${b.COLOR}`;
     if (b.VALUE) out += ` 讀取值: ${b.VALUE}`;
     out += "\n";
@@ -239,13 +277,12 @@ export default function Popup() {
   const [naturalLanguagePrompt, setNaturalLanguagePrompt] = useState<string>('');
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
-  const [smartSuggestions, setSmartSuggestions] = useState<any[]>([]);
   const [chatHistory, setChatHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
-  const [activeAITab, setActiveAITab] = useState<'chat' | 'suggestions' | 'natural' | null>(null);
+  const [activeAITab, setActiveAITab] = useState<'chat' | 'natural' | null>(null);
   const [isDebugCollapsed, setIsDebugCollapsed] = useState<boolean>(true);
-  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'zh-TW' | 'zh-CN' | 'es' | 'hi' | 'ar' | 'pt' | 'bn' | 'ru' | 'fr' | 'id'>(() => {
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'zh-TW'>(() => {
     const saved = localStorage.getItem('spike-ai-language');
     return (saved as any) || 'zh-TW';
   });
@@ -283,8 +320,7 @@ Example pattern:
 - Stop Block: 'stop all motors'
 
 Generate the block sequence in English:`,
-        smartSuggestions: (blocks: string) => `Smart suggestion analysis: Please analyze the student's current program and provide 3-5 specific improvement suggestions\n\nCurrent blocks: ${blocks}`,
-        smartSuggestionsTitle: "Smart Suggestion Analysis",
+
         chatConversation: (userMessage: string, history: any[]) => `Student question: ${userMessage}\n\nConversation history:\n${history.map(msg => `${msg.role === 'user' ? 'Student' : 'AI'}: ${msg.content}`).join('\n')}`
       },
       'zh-TW': {
@@ -308,130 +344,21 @@ Generate the block sequence in English:`,
 - 停止積木：「停止所有馬達」
 
 用繁體中文生成積木序列：`,
-        smartSuggestions: (blocks: string) => `智能建議分析: 請分析學生的當前程式並提供3-5個具體改進建議\n\n當前積木: ${blocks}`,
-        smartSuggestionsTitle: "智能建議分析",
+
         chatConversation: (userMessage: string, history: any[]) => `學生問題: ${userMessage}\n\n對話歷史:\n${history.map(msg => `${msg.role === 'user' ? '學生' : 'AI'}: ${msg.content}`).join('\n')}`
-      },
-      'zh-CN': {
-        programAnalysis: "请分析这个程序的逻辑并用简短的中文描述机器人会做什么。特别注意条件控制（if-then）和传感器触发的逻辑结构。",
-        naturalLanguageGeneration: (prompt: string) => `重要：请用简体中文回答。不要使用其他语言。
-
-学生的自然语言需求: "${prompt}"
-
-请生成全新的积木程序来实现这个功能。对于「移动直到条件然后停止」的模式，请遵循以下规则：
-
-1. 使用「重复直到」控制积木，将移动积木放在循环内
-2. 将停止命令放在循环外和循环后
-3. 停止后不要添加任何更多移动积木
-4. 确保机器人动作在条件满足时确实停止
-
-示例模式：
-- 事件积木：「当程序开始时」
-- 马达积木：「设定马达 A 和 B 速度为 70%」
-- 控制积木：「重复直到距离传感器 < 10cm」
-- 马达积木：「马达 A 和 B 向前移动 1 圈」
-- 停止积木：「停止所有马达」
-
-用简体中文生成积木序列：`,
-        smartSuggestions: (blocks: string) => `智能建议分析: 请分析学生的当前程序并提供3-5个具体改进建议\n\n当前积木: ${blocks}`,
-        smartSuggestionsTitle: "智能建议分析",
-        chatConversation: (userMessage: string, history: any[]) => `学生问题: ${userMessage}\n\n对话历史:\n${history.map(msg => `${msg.role === 'user' ? '学生' : 'AI'}: ${msg.content}`).join('\n')}`
-      },
-      'es': {
-        programAnalysis: "Por favor analiza la lógica de este programa y describe brevemente en español qué hará el robot. Presta especial atención a los controles condicionales (si-entonces) y las estructuras lógicas activadas por sensores.",
-        naturalLanguageGeneration: (prompt: string) => `IMPORTANTE: Responde solo en español. No uses ningún otro idioma.
-
-Requisito en lenguaje natural del estudiante: "${prompt}"
-
-Por favor genera un programa de bloques completamente nuevo para implementar esta funcionalidad. Para patrones de 'mover hasta condición luego parar', sigue estas reglas:
-
-1. Usa un bloque de control 'repetir hasta' con el bloque de movimiento dentro del bucle
-2. Coloca el comando de parada fuera y después del bucle
-3. NO agregues más bloques de movimiento después de la parada
-4. Asegúrate de que las acciones del robot realmente SE DETENGAN una vez que se cumpla la condición
-
-Patrón de ejemplo:
-- Bloque de evento: 'cuando el programa comience'
-- Bloque de motor: 'establecer velocidad de motores A y B al 70%'
-- Bloque de control: 'repetir hasta sensor de distancia < 10cm'
-- Bloque de motor: 'mover motores A y B hacia adelante 1 rotación'
-- Bloque de parada: 'parar todos los motores'
-
-Genera la secuencia de bloques en español:`,
-        smartSuggestions: (blocks: string) => `Análisis de sugerencias inteligentes: Por favor analiza el programa actual del estudiante y proporciona 3-5 sugerencias específicas de mejora\n\nBloques actuales: ${blocks}`,
-        smartSuggestionsTitle: "Análisis de Sugerencias Inteligentes",
-        chatConversation: (userMessage: string, history: any[]) => `Pregunta del estudiante: ${userMessage}\n\nHistorial de conversación:\n${history.map(msg => `${msg.role === 'user' ? 'Estudiante' : 'AI'}: ${msg.content}`).join('\n')}`
-      },
-      'fr': {
-        programAnalysis: "Veuillez analyser la logique de ce programme et décrire brièvement en français ce que le robot va faire. Portez une attention particulière aux contrôles conditionnels (si-alors) et aux structures logiques déclenchées par les capteurs.",
-        naturalLanguageGeneration: (prompt: string) => `IMPORTANT: Répondez uniquement en français. N'utilisez aucune autre langue.
-
-Exigence en langage naturel de l'étudiant: "${prompt}"
-
-Veuillez générer un programme de blocs entièrement nouveau pour implémenter cette fonctionnalité. Pour les modèles 'se déplacer jusqu'à condition puis arrêter', suivez ces règles:
-
-1. Utilisez un bloc de contrôle 'répéter jusqu'à' avec le bloc de mouvement à l'intérieur de la boucle
-2. Placez la commande d'arrêt à l'extérieur et après la boucle
-3. N'ajoutez PAS plus de blocs de mouvement après l'arrêt
-4. Assurez-vous que les actions du robot s'arrêtent réellement une fois la condition remplie
-
-Modèle d'exemple:
-- Bloc d'événement: 'quand le programme commence'
-- Bloc moteur: 'définir la vitesse des moteurs A et B à 70%'
-- Bloc de contrôle: 'répéter jusqu'à capteur de distance < 10cm'
-- Bloc moteur: 'déplacer les moteurs A et B vers l'avant 1 rotation'
-- Bloc d'arrêt: 'arrêter tous les moteurs'
-
-Générez la séquence de blocs en français:`,
-        smartSuggestions: (blocks: string) => `Analyse de suggestions intelligentes: Veuillez analyser le programme actuel de l'étudiant et fournir 3-5 suggestions d'amélioration spécifiques\n\nBlocs actuels: ${blocks}`,
-        smartSuggestionsTitle: "Analyse de Suggestions Intelligentes",
-        chatConversation: (userMessage: string, history: any[]) => `Question de l'étudiant: ${userMessage}\n\nHistorique de conversation:\n${history.map(msg => `${msg.role === 'user' ? 'Étudiant' : 'IA'}: ${msg.content}`).join('\n')}`
-      },
-      'ar': {
-        programAnalysis: "يرجى تحليل منطق هذا البرنامج ووصف ما سيفعله الروبوت بإيجاز باللغة العربية. انتبه بشكل خاص للتحكم الشرطي (إذا-إذن) والهياكل المنطقية المحفزة بالمستشعرات.",
-        naturalLanguageGeneration: (prompt: string) => `مهم: أجب باللغة العربية فقط. لا تستخدم أي لغة أخرى.
-
-متطلبات الطالب باللغة الطبيعية: "${prompt}"
-
-يرجى إنشاء برنامج كتل جديد تماماً لتنفيذ هذه الوظيفة. لأنماط 'التحرك حتى الشرط ثم التوقف'، اتبع هذه القواعد:
-
-1. استخدم كتلة تحكم 'كرر حتى' مع كتلة الحركة داخل الحلقة
-2. ضع أمر التوقف خارج وبعد الحلقة
-3. لا تضيف أي كتل حركة أخرى بعد التوقف
-4. تأكد من أن إجراءات الروبوت تتوقف فعلاً بمجرد استيفاء الشرط
-
-نمط المثال:
-- كتلة الحدث: 'عندما يبدأ البرنامج'
-- كتلة المحرك: 'تعيين سرعة المحركات A و B إلى 70%'
-- كتلة التحكم: 'كرر حتى مستشعر المسافة < 10 سم'
-- كتلة المحرك: 'تحريك المحركات A و B للأمام دورة واحدة'
-- كتلة التوقف: 'إيقاف جميع المحركات'
-
-أنشئ تسلسل الكتل باللغة العربية:`,
-        smartSuggestions: (blocks: string) => `تحليل الاقتراحات الذكية: يرجى تحليل برنامج الطالب الحالي وتقديم 3-5 اقتراحات تحسين محددة\n\nالكتل الحالية: ${blocks}`,
-        smartSuggestionsTitle: "تحليل الاقتراحات الذكية",
-        chatConversation: (userMessage: string, history: any[]) => `سؤال الطالب: ${userMessage}\n\nسجل المحادثة:\n${history.map(msg => `${msg.role === 'user' ? 'الطالب' : 'الذكاء الاصطناعي'}: ${msg.content}`).join('\n')}`
       }
     };
+    
+    // Return the prompts for the selected language, fallback to English
+    return prompts[selectedLanguage] || prompts['en'];
 
-    // For languages without specific prompts, use English as fallback
-    return prompts[selectedLanguage] || prompts.en;
   };
   
   // Convert UI language to API language format
   const getApiLanguage = () => {
     const languageMap = {
       'en': 'en',
-      'zh-TW': 'zh-Hant',
-      'zh-CN': 'zh-Hans', 
-      'es': 'es',
-      'hi': 'hi',
-      'ar': 'ar',
-      'pt': 'pt',
-      'bn': 'bn',
-      'ru': 'ru',
-      'fr': 'fr',
-      'id': 'id'
+      'zh-TW': 'zh-TW'
     };
     return languageMap[selectedLanguage] || 'en';
   };
@@ -542,7 +469,10 @@ Générez la séquence de blocs en français:`,
         (window as any).__lastHierarchy = msg.data.hierarchy;
         setBlockData(msg.data.blocks || []);
 
-        setDebugInfo(`🔄 Blocks changed: ${msg.data.blocks?.length || 0} blocks detected`);
+        setDebugInfo(`🔄 ${getText({
+          en: `Blocks changed: ${msg.data.blocks?.length || 0} blocks detected`,
+          'zh-TW': `積木已變更：偵測到 ${msg.data.blocks?.length || 0} 個積木`
+        })}`);
         // Generate AI summary only when blocks actually change
         generateAISummaryIfChanged(msg.data.blocks || [], msg.data.hierarchy);
       }
@@ -663,7 +593,10 @@ Générez la séquence de blocs en français:`,
   // Generate AI summary of what the code does
   async function generateAISummary(blocks: any[], hierarchy?: any) {
     if (!blocks || blocks.length === 0) {
-      setAiSummary('等待積木資料... (Waiting for block data)');
+      setAiSummary(getText({
+        en: 'Waiting for block data...',
+        'zh-TW': '等待積木資料...'
+      }));
       return;
     }
 
@@ -673,7 +606,10 @@ Générez la séquence de blocs en français:`,
     console.log('[AI Summary] 🏷️ Block categories being sent:', blocks.map(b => b.category));
     console.log('[AI Summary] 🌳 Hierarchy data:', hierarchy);
     console.log('[AI Summary] 🔍 Full block data being sent:', JSON.stringify(blocks, null, 2));
-      setAiSummary('正在生成摘要... (Generating summary...)');
+      setAiSummary(getText({
+        en: 'Generating summary...',
+        'zh-TW': '正在生成摘要...'
+      }));
       
       const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
         method: 'POST',
@@ -712,32 +648,14 @@ Générez la séquence de blocs en français:`,
         console.error('[AI Summary] No advice in response:', data);
         setAiSummary(getText({
           en: 'Unable to generate summary',
-          'zh-TW': '無法生成摘要',
-          'zh-CN': '无法生成摘要',
-          es: 'No se pudo generar el resumen',
-          hi: 'सारांश उत्पन्न नहीं कर सका',
-          ar: 'تعذر إنشاء الملخص',
-          pt: 'Não foi possível gerar o resumo',
-          bn: 'সারাংশ তৈরি করা যায়নি',
-          ru: 'Не удалось создать сводку',
-          fr: 'Impossible de générer le résumé',
-          id: 'Tidak dapat menghasilkan ringkasan'
+          'zh-TW': '無法生成摘要'
         }));
       }
     } catch (error) {
       console.error('[AI Summary] Error generating AI summary:', error);
       setAiSummary(getText({
         en: 'Summary generation failed',
-        'zh-TW': '摘要生成失敗',
-        'zh-CN': '摘要生成失败',
-        es: 'Falló la generación del resumen',
-        hi: 'सारांश जनरेशन विफल',
-        ar: 'فشل إنشاء الملخص',
-        pt: 'Falha na geração do resumo',
-        bn: 'সারাংশ জেনারেশন ব্যর্থ',
-        ru: 'Ошибка генерации сводки',
-        fr: 'Échec de la génération du résumé',
-        id: 'Pembuatan ringkasan gagal'
+        'zh-TW': '摘要生成失敗'
       }));
     }
   }
@@ -749,16 +667,7 @@ Générez la séquence de blocs en français:`,
     setIsGeneratingCode(true);
     setGeneratedCode(getText({
       en: 'Generating code...',
-      'zh-TW': '正在生成代碼...',
-      'zh-CN': '正在生成代码...',
-      es: 'Generando código...',
-      hi: 'कोड बन रहा है...',
-      ar: 'يتم إنشاء الكود...',
-      pt: 'Gerando código...',
-      bn: 'কোড তৈরি হচ্ছে...',
-      ru: 'Генерация кода...',
-      fr: 'Génération du code...',
-      id: 'Menghasilkan kode...'
+      'zh-TW': '正在生成代碼...'
     }));
     
     try {
@@ -844,52 +753,7 @@ Générez la séquence de blocs en français:`,
     }
   };
 
-  // Smart Code Suggestions - Using proven working AI backend
-  const fetchSmartSuggestions = async () => {
-    if (!blockData.length) return;
-    
-    try {
-      // Use the SAME proven working backend as "Ask AI"
-      const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd3VscXNkYnJwdHJydGtsdWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NjM4NzEsImV4cCI6MjA2OTIzOTg3MX0.ajT317ynsqT0OWwOXroU0GggATbebIRcC5F5nAxVTMg'
-        },
-        body: JSON.stringify({
-          code: {
-            summary: getAIPrompts().smartSuggestions(blockData.map(b => `${b.category}: ${b.text}`).join(', ')),
-            pickedSymptom: "smart-suggestions",
-            blockText: blockData.map(b => `${b.category}: ${b.text}`).join(' | '),
-            blocks: blockData
-          },
-          lang: getApiLanguage()
-        })
-      });
 
-      const data = await response.json();
-      if (data.advice) {
-        // Parse the advice as smart suggestions
-        const suggestionsText = data.advice;
-        
-        // Create a simple suggestion format
-        const suggestions = [
-          {
-            type: "analysis",
-            title: getAIPrompts().smartSuggestionsTitle,
-            description: suggestionsText,
-            priority: "medium",
-            blockTypes: ["analysis"],
-            code: ""
-          }
-        ];
-        
-        setSmartSuggestions(suggestions);
-      }
-    } catch (error) {
-      console.error('[Smart Suggestions] Error:', error);
-    }
-  };
 
   // Chatbot Conversation - Using the proven working AI backend
   const sendChatMessage = async () => {
@@ -973,12 +837,7 @@ Générez la séquence de blocs en français:`,
 
 
 
-  // Auto-fetch suggestions when blocks change
-  useEffect(() => {
-    if (blockData.length > 0 && activeAITab === 'suggestions') {
-      fetchSmartSuggestions();
-    }
-  }, [blockData, activeAITab]);
+
 
   // Listen for workspace changes from content script
   useEffect(() => {
@@ -989,12 +848,7 @@ Générez la séquence de blocs en français:`,
         // Update block data
         setBlockData(message.blocks || []);
         
-        // Auto-trigger suggestions if panel is open
-        if (activeAITab === 'suggestions') {
-          setTimeout(() => {
-            fetchSmartSuggestions();
-          }, 1000);
-        }
+
         
         // Auto-generate AI summary if blocks changed significantly
         if (message.blocks && message.blocks.length > 0) {
@@ -1052,9 +906,9 @@ Générez la séquence de blocs en français:`,
     setSelectedError(val);
 
     let custom = "";
-    if (val === "motor") custom = getCustomMotorAdvice(blockData);
+    if (val === "motor") custom = getCustomMotorAdvice(blockData, selectedLanguage);
     if (val === "direction") custom = getCustomDirectionAdvice(blockData);
-    if (val === "not-starting") custom = getCustomNotStartingAdvice(blockData);
+    if (val === "not-starting") custom = getCustomNotStartingAdvice(blockData, selectedLanguage);
     if (val === "stop") custom = getCustomStopAdvice(blockData);
     if (val === "sensor") custom = getCustomSensorAdvice(blockData);
 
@@ -1388,7 +1242,10 @@ Générez la séquence de blocs en français:`,
           onClick={() => setIsBlockPanelCollapsed(!isBlockPanelCollapsed)}
         >
           <h3 style={{ margin: '0', color: '#333', fontSize: '16px' }}>
-            🧩 檢測到的積木設定 (Detected Blocks) ({workspaceBlocks.length})
+            🧩 {getText({
+              en: 'Detected Blocks',
+              'zh-TW': '檢測到的積木設定 (Detected Blocks)'
+            })} ({workspaceBlocks.length})
           </h3>
           <span style={{ fontSize: '14px', color: '#666' }}>
             {isBlockPanelCollapsed ? '▼' : '▲'}
@@ -1407,9 +1264,15 @@ Générez la séquence de blocs en français:`,
             color: '#1565c0'
           }}>
             <div style={{ fontWeight: '600', marginBottom: '5px' }}>
-              🤖 AI 程式摘要 (AI Program Summary):
+              🤖 {getText({
+                en: 'AI Program Summary',
+                'zh-TW': 'AI 程式摘要 (AI Program Summary)'
+              })}:
             </div>
-            <div>{aiSummary || '正在生成摘要... (Generating summary...)'}</div>
+            <div>{aiSummary || getText({
+              en: 'Generating summary...',
+              'zh-TW': '正在生成摘要... (Generating summary...)'
+            })}</div>
           </div>
         )}
         
@@ -1693,16 +1556,7 @@ Générez la séquence de blocs en français:`,
         }}>
           💡 {getText({
             en: 'Sticky Mode: Right-click this popup → "Inspect" to keep it open permanently!',
-            'zh-TW': '置頂模式：右鍵點擊此彈窗 → "檢查" 來永久保持開啟！',
-            'zh-CN': '置顶模式：右键点击此弹窗 → "检查" 来永久保持开启！',
-            es: 'Modo Pegajoso: Clic derecho en este popup → "Inspeccionar" para mantenerlo abierto permanentemente!',
-            hi: 'स्टिकी मोड: इस पॉपअप पर राइट-क्लिक → "निरीक्षण" करके इसे स्थायी रूप से खुला रखें!',
-            ar: 'وضع الالتصاق: انقر بزر الماوس الأيمن على هذا المنبثق → "فحص" لإبقائه مفتوحاً بشكل دائم!',
-            pt: 'Modo Aderente: Clique direito neste popup → "Inspecionar" para mantê-lo aberto permanentemente!',
-            bn: 'স্টিকি মোড: এই পপআপে রাইট-ক্লিক → "পরিদর্শন" করে স্থায়ীভাবে খোলা রাখুন!',
-            ru: 'Липкий Режим: Правый клик на этом всплывающем окне → "Просмотреть код" чтобы держать его открытым!',
-            fr: 'Mode Collant: Clic droit sur cette popup → "Inspecter" pour la garder ouverte en permanence !',
-            id: 'Mode Lengket: Klik kanan popup ini → "Periksa" untuk menjaganya tetap terbuka secara permanen!'
+            'zh-TW': '置頂模式：右鍵點擊此彈窗 → "檢查" 來永久保持開啟！'
           })}
         </div>
       )}
@@ -1754,31 +1608,13 @@ Générez la séquence de blocs en français:`,
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', lineHeight: '1.2' }}>
             {getText({
               en: '🤖 SPIKE AI Error Advisor',
-              'zh-TW': '🤖 SPIKE AI 錯誤顧問',
-              'zh-CN': '🤖 SPIKE AI 错误顾问',
-              es: '🤖 SPIKE AI Asesor de Errores',
-              hi: '🤖 SPIKE AI त्रुटि सलाहकार',
-              ar: '🤖 SPIKE AI مستشار الأخطاء',
-              pt: '🤖 SPIKE AI Consultor de Erros',
-              bn: '🤖 SPIKE AI ত্রুটি উপদেষ্টা',
-              ru: '🤖 SPIKE AI Консультант по Ошибкам',
-              fr: '🤖 SPIKE AI Conseiller d\'Erreurs',
-              id: '🤖 SPIKE AI Penasihat Kesalahan'
+              'zh-TW': '🤖 SPIKE AI 錯誤顧問'
             })}
           </h2>
           <p style={{ margin: "8px 0 0 0", fontSize: 14, opacity: 0.95, fontWeight: 400, lineHeight: '1.3' }}>
             {getText({
               en: 'LEGO SPIKE Prime Intelligent Debugging Assistant',
-              'zh-TW': 'LEGO SPIKE Prime 智能除錯助手',
-              'zh-CN': 'LEGO SPIKE Prime 智能调试助手',
-              es: 'Asistente Inteligente de Depuración LEGO SPIKE Prime',
-              hi: 'LEGO SPIKE Prime इंटेलिजेंट डिबगिंग असिस्टेंट',
-              ar: 'مساعد الذكاء الاصطناعي في تصحيح الأخطاء LEGO SPIKE Prime',
-              pt: 'Assistente Inteligente de Depuração LEGO SPIKE Prime',
-              bn: 'LEGO SPIKE Prime ইন্টেলিজেন্ট ডিবাগিং সহকারী',
-              ru: 'Интеллектуальный помощник отладки LEGO SPIKE Prime',
-              fr: 'Assistant Intelligent de Débogage LEGO SPIKE Prime',
-              id: 'Asisten Debugging Cerdas LEGO SPIKE Prime'
+              'zh-TW': 'LEGO SPIKE Prime 智能除錯助手'
             })}
           </p>
         </div>
@@ -1830,7 +1666,7 @@ Générez la séquence de blocs en français:`,
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <select
               value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value as 'en' | 'zh-TW' | 'zh-CN' | 'es' | 'hi' | 'ar' | 'pt' | 'bn' | 'ru' | 'fr' | 'id')}
+              onChange={(e) => setSelectedLanguage(e.target.value as 'en' | 'zh-TW')}
               style={{
                 background: 'var(--bg-primary)',
                 border: '2px solid var(--border-color)',
@@ -1854,15 +1690,6 @@ Générez la séquence de blocs en français:`,
               }}
             >
               <option value="en">🇺🇸 English</option>
-              <option value="zh-CN">🇨🇳 简体中文</option>
-              <option value="hi">🇮🇳 हिन्दी</option>
-              <option value="es">🇪🇸 Español</option>
-              <option value="fr">🇫🇷 Français</option>
-              <option value="ar">🇸🇦 العربية</option>
-              <option value="bn">🇧🇩 বাংলা</option>
-              <option value="ru">🇷🇺 Русский</option>
-              <option value="pt">🇧🇷 Português</option>
-              <option value="id">🇮🇩 Indonesia</option>
               <option value="zh-TW">🇹🇼 繁體中文</option>
             </select>
           </div>
@@ -1892,16 +1719,7 @@ Générez la séquence de blocs en français:`,
         <h3 className="section-title" style={{ color: "var(--primary-color)", fontSize: "20px" }}>
           {getText({
             en: '🤖 AI Assistant',
-            'zh-TW': '🤖 AI 助手',
-            'zh-CN': '🤖 AI 助手',
-            es: '🤖 Asistente IA',
-            hi: '🤖 AI सहायक',
-            ar: '🤖 مساعد الذكاء الاصطناعي',
-            pt: '🤖 Assistente IA',
-            bn: '🤖 AI সহায়ক',
-            ru: '🤖 ИИ Помощник',
-            fr: '🤖 Assistant IA',
-            id: '🤖 Asisten AI'
+            'zh-TW': '🤖 AI 助手'
           })}
         </h3>
         
@@ -1931,29 +1749,6 @@ Générez la séquence de blocs en français:`,
             })}
           </button>
           <button
-            onClick={() => setActiveAITab(activeAITab === 'suggestions' ? null : 'suggestions')}
-            className={`pill-tab ${activeAITab === 'suggestions' ? 'active' : ''}`}
-            style={{
-              flex: '1',
-              minWidth: '120px',
-              justifyContent: 'center'
-            }}
-          >
-            💡 {getText({
-              en: 'AI Suggestions',
-              'zh-TW': '智能建議 / AI Suggestions',
-              'zh-CN': '智能建议 / AI Suggestions',
-              es: 'Sugerencias IA / AI Suggestions',
-              hi: 'AI सुझाव / AI Suggestions',
-              ar: 'اقتراحات الذكاء الاصطناعي / AI Suggestions',
-              pt: 'Sugestões IA / AI Suggestions',
-              bn: 'AI পরামর্শ / AI Suggestions',
-              ru: 'ИИ Предложения / AI Suggestions',
-              fr: 'Suggestions IA / AI Suggestions',
-              id: 'Saran AI / AI Suggestions'
-            })}
-          </button>
-          <button
             onClick={() => setActiveAITab(activeAITab === 'natural' ? null : 'natural')}
             className={`pill-tab ${activeAITab === 'natural' ? 'active' : ''}`}
             style={{
@@ -1963,17 +1758,8 @@ Générez la séquence de blocs en français:`,
             }}
           >
             🧩 {getText({
-              en: 'Natural Language to Code',
-              'zh-TW': '程式編程 / Code Generation',
-              'zh-CN': '程序编程 / Code Generation',
-              es: 'Lenguaje Natural a Código / Natural Language to Code',
-              hi: 'प्राकृतिक भाषा से कोड / Natural Language to Code',
-              ar: 'اللغة الطبيعية إلى كود / Natural Language to Code',
-              pt: 'Linguagem Natural para Código / Natural Language to Code',
-              bn: 'প্রাকৃতিক ভাষা থেকে কোড / Natural Language to Code',
-              ru: 'Естественный Язык в Код / Natural Language to Code',
-              fr: 'Langage Naturel vers Code / Natural Language to Code',
-              id: 'Bahasa Alami ke Kode / Natural Language to Code'
+              en: 'Code Generator',
+              'zh-TW': '程式編程 / Code Generation'
             })}
           </button>
         </div>
@@ -1997,7 +1783,10 @@ Générez la séquence de blocs en français:`,
             }}>
               {chatHistory.length === 0 ? (
                 <div style={{ color: '#666', fontSize: '12px', textAlign: 'center', padding: '20px' }}>
-                  問我任何關於SPIKE Prime編程的問題！
+                  {getText({
+                    en: 'Ask me any questions about SPIKE Prime programming!',
+                    'zh-TW': '問我任何關於SPIKE Prime編程的問題！'
+                  })}
                 </div>
               ) : (
                 chatHistory.map((msg, index) => (
@@ -2009,7 +1798,13 @@ Générez la séquence de blocs en français:`,
                     fontSize: '12px'
                   }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
-                      {msg.role === 'user' ? '你：' : 'AI：'}
+                      {msg.role === 'user' ? getText({
+                        en: 'You:',
+                        'zh-TW': '你：'
+                      }) : getText({
+                        en: 'AI:',
+                        'zh-TW': 'AI：'
+                      })}
                     </div>
                     <div>{msg.content}</div>
                   </div>
@@ -2032,34 +1827,32 @@ Générez la séquence de blocs en français:`,
                   <span>🤔</span>
                   {getText({
                     en: 'AI is thinking...',
-                    'zh-TW': 'AI 正在思考中...',
-                    'zh-CN': 'AI 正在思考中...',
-                    es: 'IA está pensando...',
-                    hi: 'AI सोच रहा है...',
-                    ar: 'الذكاء الاصطناعي يفكر...',
-                    pt: 'IA está pensando...',
-                    bn: 'AI ভাবছে...',
-                    ru: 'ИИ думает...',
-                    fr: 'IA réfléchit...',
-                    id: 'AI sedang berpikir...'
+                    'zh-TW': 'AI 正在思考中...'
                   })}
                 </div>
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              <textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                placeholder="問問題，例如：為什麼我的機器人不會轉彎？"
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                placeholder={getText({
+                  en: "Ask a question, e.g., Why won't my robot turn?",
+                  'zh-TW': "問問題，例如：為什麼我的機器人不會轉彎？"
+                })}
                 style={{
                   flex: 1,
-                  padding: '6px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '12px'
+                  padding: '10px 12px',
+                  border: '2px solid #ddd',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  minHeight: '60px',
+                  maxHeight: '120px',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  lineHeight: '1.4'
                 }}
               />
               <button
@@ -2076,75 +1869,16 @@ Générez la séquence de blocs en français:`,
                   opacity: (!chatInput.trim() || isChatLoading) ? 0.6 : 1
                 }}
               >
-                發送
+                {getText({
+                  en: 'Send',
+                  'zh-TW': '發送'
+                })}
               </button>
             </div>
           </div>
         )}
 
-        {/* Smart Suggestions Interface */}
-        {activeAITab === 'suggestions' && (
-          <div style={{ 
-            background: '#f0fff0', 
-            border: '1px solid #90ee90', 
-            borderRadius: '8px', 
-            padding: '12px'
-          }}>
-            <button
-              onClick={fetchSmartSuggestions}
-              style={{
-                background: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                marginBottom: '12px'
-              }}
-            >
-              🔄 獲取建議
-            </button>
-            
-            {smartSuggestions.length > 0 ? (
-              <div>
-                {smartSuggestions.map((suggestion, index) => (
-                  <div key={index} style={{
-                    background: 'white',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    padding: '8px',
-                    marginBottom: '8px',
-                    fontSize: '12px'
-                  }}>
-                    <div style={{ fontWeight: 'bold', color: '#006600', marginBottom: '4px' }}>
-                      {suggestion.title}
-                    </div>
-                    <div style={{ color: '#333' }}>
-                      {suggestion.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
-                {getText({
-          en: 'Click the button above to get smart suggestions',
-          'zh-TW': '點擊上方按鈕獲取智能建議 / Click the button above to get smart suggestions',
-          'zh-CN': '点击上方按钮获取智能建议 / Click the button above to get smart suggestions',
-          es: 'Haz clic en el botón de arriba para obtener sugerencias inteligentes / Click the button above to get smart suggestions',
-          hi: 'स्मार्ट सुझाव पाने के लिए ऊपरी बटन पर क्लिक करें / Click the button above to get smart suggestions',
-          ar: 'انقر على الزر أعلاه للحصول على اقتراحات ذكية / Click the button above to get smart suggestions',
-          pt: 'Clique no botão acima para obter sugestões inteligentes / Click the button above to get smart suggestions',
-          bn: 'স্মার্ট পরামর্শ পেতে উপরের বোতামে ক্লিক করুন / Click the button above to get smart suggestions',
-          ru: 'Нажмите кнопку выше, чтобы получить умные предложения / Click the button above to get smart suggestions',
-          fr: 'Cliquez sur le bouton ci-dessus pour obtenir des suggestions intelligentes / Click the button above to get smart suggestions',
-          id: 'Klik tombol di atas untuk mendapatkan saran cerdas / Click the button above to get smart suggestions'
-        })}
-              </p>
-            )}
-          </div>
-        )}
+
 
         {/* Natural Language to Code Interface */}
         {activeAITab === 'natural' && (
@@ -2262,18 +1996,21 @@ Générez la séquence de blocs en français:`,
                 lineHeight: '1.6'
               }}>
                 {generatedCode
-                  .replace(/\*\*\*/g, '')
-                  .replace(/\*\*(.*?)\*\*/g, '**$1**')
                   .split('\n').map((line, index) => {
+                    // Process markdown formatting
+                    const processedLine = line
+                      .replace(/\*\*(.*?)\*\*/g, (_, text) => text) // Remove ** ** but keep the text
+                      .replace(/\*\*\*/g, ''); // Remove any remaining ***
+                    
                     // Make section headers bold
-                    if (line.includes('Program Goal') || 
-                        line.includes('Complete Block Sequence') || 
-                        line.includes('Recommended Settings') || 
-                        line.includes('Usage Instructions') ||
-                        line.includes('程序目標') ||
-                        line.includes('完整積木序列') ||
-                        line.includes('推薦設定') ||
-                        line.includes('使用說明')) {
+                    if (processedLine.includes('Program Goal') || 
+                        processedLine.includes('Complete Block Sequence') || 
+                        processedLine.includes('Recommended Settings') || 
+                        processedLine.includes('Usage Instructions') ||
+                        processedLine.includes('程序目標') ||
+                        processedLine.includes('完整積木序列') ||
+                        processedLine.includes('推薦設定') ||
+                        processedLine.includes('使用說明')) {
                       return (
                         <div key={index} style={{
                           fontWeight: 'bold',
@@ -2284,12 +2021,12 @@ Générez la séquence de blocs en français:`,
                           borderBottom: '2px solid var(--border-color)',
                           paddingBottom: '4px'
                         }}>
-                          {line}
+                          {processedLine}
                         </div>
                       );
                     }
                     // Make numbered items stand out
-                    else if (line.match(/^\d+\./)) {
+                    else if (processedLine.match(/^\d+\./)) {
                       return (
                         <div key={index} style={{
                           fontWeight: '600',
@@ -2297,7 +2034,7 @@ Générez la séquence de blocs en français:`,
                           marginLeft: '16px',
                           marginBottom: '4px'
                         }}>
-                          {line}
+                          {processedLine}
                         </div>
                       );
                     }
@@ -2308,7 +2045,7 @@ Générez la séquence de blocs en français:`,
                           color: 'var(--text-secondary)',
                           marginBottom: '4px'
                         }}>
-                          {line}
+                          {processedLine}
                         </div>
                       );
                     }

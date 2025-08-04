@@ -31,11 +31,7 @@ interface NaturalLanguageRequest {
   context?: string; // Optional existing code context
 }
 
-interface SmartSuggestionsRequest {
-  currentCode: any[];
-  lastAction?: string;
-  codeType: 'blocks' | 'python';
-}
+
 
 interface ChatbotRequest {
   message: string;
@@ -114,98 +110,7 @@ Respond with:
 }
 
 // Handler for smart code suggestions
-async function handleSmartSuggestions(req: Request, headers: any): Promise<Response> {
-  try {
-    const { currentCode, lastAction, codeType }: SmartSuggestionsRequest = await req.json();
-    
-    console.log('[Smart Suggestions] Analyzing code for suggestions:', { currentCode: currentCode.length, lastAction, codeType });
-    
-    const codeAnalysis = currentCode.map(block => `${block.category}: ${block.text}`).join('\n');
-    
-    const systemPrompt = `You are a SPIKE Prime programming tutor. Analyze the current code and provide smart suggestions for improvements, next steps, or common patterns.
 
-Current Code:
-${codeAnalysis}
-
-Last Action: ${lastAction || 'Unknown'}
-
-Provide 3-5 specific, actionable suggestions in this JSON format:
-{
-  "suggestions": [
-    {
-      "type": "improvement|addition|fix",
-      "title": "Short title in Traditional Chinese",
-      "description": "Detailed explanation in Traditional Chinese",
-      "priority": "high|medium|low",
-      "blockTypes": ["relevant", "block", "categories"],
-      "code": "Example code or block description"
-    }
-  ],
-  "nextSteps": ["What the student should consider doing next"],
-  "commonPatterns": ["Related programming patterns they might want to learn"]
-}
-
-Focus on educational value and practical robotics applications.`;
-
-    const openaiResp = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this SPIKE Prime code and provide suggestions: ${codeAnalysis}` }
-        ],
-        max_tokens: 800,
-        temperature: 0.4,
-      }),
-    });
-
-    const openaiData = await openaiResp.json();
-    let suggestions;
-    
-    try {
-      suggestions = JSON.parse(openaiData.choices[0]?.message?.content || '{"suggestions": [], "nextSteps": [], "commonPatterns": []}');
-    } catch (parseError) {
-      // Fallback if JSON parsing fails
-      suggestions = {
-        suggestions: [
-          {
-            type: "improvement",
-            title: "分析你的程式",
-            description: openaiData.choices[0]?.message?.content || "無法分析代碼",
-            priority: "medium",
-            blockTypes: ["control"],
-            code: ""
-          }
-        ],
-        nextSteps: ["繼續開發你的機器人程式"],
-        commonPatterns: ["基礎感應器控制", "馬達運動控制"]
-      };
-    }
-
-    console.log('[Smart Suggestions] Generated suggestions:', suggestions);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        ...suggestions,
-        timestamp: new Date().toISOString()
-      }),
-      { headers: { ...headers, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('[Smart Suggestions] Error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: { ...headers, 'Content-Type': 'application/json' } }
-    );
-  }
-}
 
 // Handler for chatbot conversations
 async function handleChatbot(req: Request, headers: any): Promise<Response> {
@@ -973,24 +878,7 @@ You are a LEGO SPIKE Prime programming expert. Students describe their desired r
 4. Test and adjust
 
 **Format requirement**: Use English, provide specific, executable block instructions, focus on generating new programs.`,
-      'smart-suggestions': `【Smart Program Suggestions Mode】
-You are a professional SPIKE Prime programming mentor. Analyze the student's current block program and provide 3-5 specific, feasible improvement suggestions.
 
-**Analysis Focus**:
-1. **Program Completeness**: Check if key blocks are missing (start, sensor, motor, control)
-2. **Logic Optimization**: if/then structure, loop usage, condition settings are reasonable
-3. **Parameter Adjustment**: motor speed, sensor threshold, time settings, etc.
-4. **Function Extension**: Based on existing blocks, suggest next functions to try
-5. **Common Issues**: Preventive suggestions to avoid common programming errors
-
-**Output Format**:
-For each suggestion:
-• **Suggestion Title**: Concise description of improvement point
-• **Specific Explanation**: Detailed explanation of why this improvement is needed
-• **Implementation Steps**: How to add or modify blocks
-• **Expected Effect**: What improvement this modification will bring
-
-Keep suggestions practical and specific, suitable for student's programming level. Respond in English.`,
       'chatbot-conversation': `【AI Teaching Assistant Conversation Mode】
 You are a friendly, professional SPIKE Prime programming instructor. Students are having a conversation with you, please respond to their questions in an educational, encouraging way.
 
@@ -1070,24 +958,7 @@ You are a professional LEGO SPIKE block programming teaching assistant. Please s
 4. 測試並調整
 
 **格式要求**：用繁體中文，提供具體、可執行的積木指令，專注於生成新程式。`,
-      'smart-suggestions': `【智能程式建議模式】
-你是專業的SPIKE Prime程式導師。分析學生當前的積木程式，提供3-5個具體、可行的改進建議。
 
-**分析重點：**
-1. **程式完整性**：檢查是否缺少關鍵積木（啟動、感應器、馬達、控制）
-2. **邏輯優化**：if/then結構、循環使用、條件設定是否合理
-3. **參數調整**：馬達速度、感應器閾值、時間設定等
-4. **功能擴展**：基於現有積木，建議下一步可以嘗試的功能
-5. **常見問題**：預防性建議，避免常見的程式錯誤
-
-**輸出格式**：
-針對每個建議：
-• **建議標題**：簡潔描述改進點
-• **具體說明**：詳細解釋為什麼需要這個改進
-• **實作步驟**：如何添加或修改積木
-• **預期效果**：這樣修改後會有什麼改善
-
-保持建議實用、具體，適合學生的程式水平。用繁體中文回應。`,
       'chatbot-conversation': `【AI助教對話模式】
 你是一位友善、專業的SPIKE Prime程式指導老師。學生正在和你進行對話，請以教育性、鼓勵性的方式回應他們的問題。
 
@@ -1143,12 +1014,37 @@ You are a professional LEGO SPIKE block programming teaching assistant. Please s
   // Return the appropriate prompt based on pickedSymptom
   if (pickedSymptom === 'natural-language-generation') {
     return prompts['natural-language-generation'];
-  } else if (pickedSymptom === 'smart-suggestions') {
-    return prompts['smart-suggestions'];
   } else if (pickedSymptom === 'chatbot-conversation') {
     return prompts['chatbot-conversation'];
   } else if (pickedSymptom === 'program-summary') {
-    return prompts['program-summary'];
+    // For program summary, include the actual block data in the prompt
+    const basePrompt = prompts['program-summary'];
+    const blockDataSection = `
+
+**CURRENT BLOCK PROGRAM DATA:**
+【程式邏輯流程結構】
+${programFlow}
+
+【積木偵測摘要】
+${blockSummary}
+
+【增強型積木檢測】
+• 馬達積木: ${blockAnalysis.motors.length}個 ${blockAnalysis.motors.length > 0 ? '✅' : '⚠️'}
+  ${blockAnalysis.motors.map(b => `- ${b.text}`).join('\n  ')}
+• 感應器積木: ${blockAnalysis.sensors.length}個 ${blockAnalysis.sensors.length > 0 ? '✅' : '⚠️'}
+  ${blockAnalysis.sensors.map(b => `- ${b.text}`).join('\n  ')}
+• 事件積木: ${blockAnalysis.events.length}個 ${blockAnalysis.events.length > 0 ? '✅' : '⚠️'}
+  ${blockAnalysis.events.map(b => `- ${b.text}`).join('\n  ')}
+• 控制積木: ${blockAnalysis.control.length}個 ${blockAnalysis.control.length > 0 ? '✅' : '⚠️'}
+  ${blockAnalysis.control.map(b => `- ${b.text}`).join('\n  ')}
+• 移動積木: ${blockAnalysis.movement.length}個 ${blockAnalysis.movement.length > 0 ? '✅' : '⚠️'}
+  ${blockAnalysis.movement.map(b => `- ${b.text}`).join('\n  ')}
+
+${diagnosticInsights}
+
+**IMPORTANT**: Analyze the above block data and provide a summary of what this program will actually do. Do not make assumptions about blocks that are not present.`;
+    
+    return basePrompt + blockDataSection;
   } else {
     // Default diagnostic prompt
     return `你是一位親切又懂樂高SPIKE的機器人輔導老師，專長是根據學生的實際積木數值和機器人行為症狀來進行診斷分析，給明確、鼓勵性的修正建議。
@@ -1224,8 +1120,7 @@ serve(async (req) => {
     switch (endpoint) {
       case 'natural-language-to-blocks':
         return await handleNaturalLanguageToBlocks(req, corsHeaders);
-      case 'smart-suggestions':
-        return await handleSmartSuggestions(req, corsHeaders);
+
       case 'chatbot':
         return await handleChatbot(req, corsHeaders);
       default:
@@ -1409,9 +1304,9 @@ RESPONSE RULES:
 - **Focus on the cause-effect relationship between code and robot behavior**
 - **For conditional logic: Use "when...then" or "if...then" sentence structures**
 - **Avoid listing components separately - show their logical relationships**
-- **CRITICAL: If sensor blocks are detected in "增強型積木檢測" section, never claim sensors are missing or unspecified**
+- **CRITICAL: If sensor blocks are detected in the block analysis section, never claim sensors are missing or unspecified**
 - **If sensor blocks exist but aren't working, analyze their integration with control flow instead**
-- Use Traditional Mandarin, be encouraging and specific
+- ${lang === 'en' ? 'Use English, be encouraging and specific' : 'Use Traditional Mandarin, be encouraging and specific'}
 - Limit responses to 150 characters for main advice, 40 characters for summaries` 
           },
           { role: "user", content: prompt }
@@ -1422,7 +1317,7 @@ RESPONSE RULES:
     });
 
     const openaiData = await openaiResp.json();
-    let advice = "抱歉，我無法取得AI建議。";
+    let advice = lang === 'en' ? "Sorry, I cannot get AI advice." : "抱歉，我無法取得AI建議。";
     try {
       advice = openaiData.choices?.[0]?.message?.content?.trim() || advice;
     } catch { /* fallback already set */ }
