@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "RoboLearn SPIKE AI Error Advisor",
-    "version": "0.1",
-    "permissions": ["scripting", "storage", "tabs"],
+    "version": "0.2",
+    "permissions": ["scripting", "storage", "tabs", "windows"],
     "host_permissions": ["https://spike.legoeducation.com/*"],
     "content_scripts": [
       {

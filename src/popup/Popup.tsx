@@ -136,6 +136,17 @@ export default function Popup() {
   const [isBlockPanelCollapsed, setIsBlockPanelCollapsed] = useState<boolean>(false);
   const [aiSummary, setAiSummary] = useState<string>('');
   
+  // New AI features state
+  const [naturalLanguagePrompt, setNaturalLanguagePrompt] = useState<string>('');
+  const [generatedCode, setGeneratedCode] = useState<string>('');
+  const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
+  const [smartSuggestions, setSmartSuggestions] = useState<any[]>([]);
+  const [chatHistory, setChatHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
+  const [chatInput, setChatInput] = useState<string>('');
+  const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
+  const [activeAITab, setActiveAITab] = useState<'chat' | 'suggestions' | 'natural' | null>(null);
+  const [isDebugCollapsed, setIsDebugCollapsed] = useState<boolean>(true);
+  
   // Persistent cache that survives component remounts
   const getAiSummaryCache = (): {[key: string]: string} => {
     try {
@@ -180,7 +191,7 @@ export default function Popup() {
   }
 
   // Modified function to only generate AI summary when blocks actually change
-  function generateAISummaryIfChanged(blocks: any[]) {
+  function generateAISummaryIfChanged(blocks: any[], hierarchy?: any) {
     const newHash = createBlocksHash(blocks);
     
     console.log('[SPIKE Advisor] Hash comparison:');
@@ -197,9 +208,9 @@ export default function Popup() {
     }
     
     // PRIORITY 2: Only generate if this is truly a new configuration
-    console.log('[SPIKE Advisor] 🔄 New block configuration detected - generating AI summary');
-    generateAISummary(blocks);
-  }
+          console.log('[SPIKE Advisor] 🔄 New block configuration detected - generating AI summary');
+      generateAISummary(blocks, hierarchy);
+    }
 
   // Listen for messages from content script
   useEffect(() => {
@@ -208,11 +219,14 @@ export default function Popup() {
       
       if (msg.type === 'BLOCK_DATA_UPDATE') {
         console.log('[SPIKE Advisor Popup] Updating block data:', msg.data.blocks?.length, 'blocks');
+        console.log('[SPIKE Advisor Popup] Hierarchy data:', msg.data.hierarchy);
+        // Store hierarchy globally for cache clearing
+        (window as any).__lastHierarchy = msg.data.hierarchy;
         setBlockData(msg.data.blocks || []);
         setBlockText(msg.data.text || '');
-        setDebugInfo(`🔄 Real-time update: ${msg.data.blocks?.length || 0} blocks detected`);
+        setDebugInfo(`🔄 Blocks changed: ${msg.data.blocks?.length || 0} blocks detected`);
         // Generate AI summary only when blocks actually change
-        generateAISummaryIfChanged(msg.data.blocks || []);
+        generateAISummaryIfChanged(msg.data.blocks || [], msg.data.hierarchy);
       }
     }
 
@@ -225,11 +239,12 @@ export default function Popup() {
         chrome.tabs.sendMessage(tabs[0].id, { type: "REQUEST_BLOCKS" }, (response: any) => {
           console.log('[SPIKE Advisor Popup] Received initial response:', response);
           if (response && response.blocks) {
+            console.log('[SPIKE Advisor Popup] Initial response hierarchy:', response.hierarchy);
             setBlockData(response.blocks || []);
             setBlockText(response.text || "");
             setDebugInfo(`📊 Initial load: ${response.blocks?.length || 0} blocks`);
             // Generate AI summary on initial load
-            generateAISummaryIfChanged(response.blocks || []);
+            generateAISummaryIfChanged(response.blocks || [], response.hierarchy);
           } else {
             setDebugInfo('❌ No response from content script - trying again in 1 second...');
             // Try again after a short delay
@@ -237,11 +252,12 @@ export default function Popup() {
               chrome.tabs.sendMessage(tabs[0].id, { type: "REQUEST_BLOCKS" }, (retryResponse: any) => {
                 console.log('[SPIKE Advisor Popup] Retry response:', retryResponse);
                 if (retryResponse && retryResponse.blocks) {
+                  console.log('[SPIKE Advisor Popup] Retry response hierarchy:', retryResponse.hierarchy);
                   setBlockData(retryResponse.blocks || []);
                   setBlockText(retryResponse.text || "");
                   setDebugInfo(`📊 Retry load: ${retryResponse.blocks?.length || 0} blocks`);
                   // Generate AI summary on retry load
-                  generateAISummaryIfChanged(retryResponse.blocks || []);
+                  generateAISummaryIfChanged(retryResponse.blocks || [], retryResponse.hierarchy);
                 } else {
                   setDebugInfo('❌ Still no response - content script may not be ready');
                 }
@@ -259,8 +275,75 @@ export default function Popup() {
     };
   }, []);
 
+  // Generate structured block text that preserves hierarchical relationships
+  function generateStructuredBlockText(blocks: any[], hierarchy?: any): string {
+    if (!blocks || blocks.length === 0) return '';
+    
+    // Group blocks by category and identify control flow
+    const eventBlocks = blocks.filter(b => b.category === 'flipperevents');
+    const controlBlocks = blocks.filter(b => b.category === 'flippercontrol');
+    const motorBlocks = blocks.filter(b => b.category === 'flippermotor');
+    const moveBlocks = blocks.filter(b => b.category === 'movement' || b.category === 'move');
+    const sensorBlocks = blocks.filter(b => b.category === 'sensors');
+    const lightBlocks = blocks.filter(b => b.category === 'flipperlight');
+    const soundBlocks = blocks.filter(b => b.category === 'flippersound');
+    
+    let structuredText = '';
+    
+    // Start with events
+    if (eventBlocks.length > 0) {
+      structuredText += `程式入口: ${eventBlocks.map(b => b.text).join(', ')}\n`;
+    }
+    
+    // Add motor setup
+    if (motorBlocks.length > 0) {
+      structuredText += `馬達設定: ${motorBlocks.map(b => b.text).join(', ')}\n`;
+    }
+    
+    // Add movement actions (not inside conditions)
+    const standaloneMove = moveBlocks.filter(b => !b.text.includes('if'));
+    if (standaloneMove.length > 0) {
+      structuredText += `移動動作: ${standaloneMove.map(b => b.text).join(', ')}\n`;
+    }
+    
+    // Add conditional logic (this is key!)
+    if (controlBlocks.length > 0) {
+      structuredText += `條件控制邏輯:\n`;
+      controlBlocks.forEach(block => {
+        if (block.text.includes('if') && block.text.includes('then')) {
+          structuredText += `  - ${block.text}\n`;
+        } else {
+          structuredText += `  - ${block.text}\n`;
+        }
+      });
+    }
+    
+    // Add sensor blocks (if not already covered in control blocks)
+    const standaloneSensors = sensorBlocks.filter(b => !controlBlocks.some(c => c.text.includes(b.text)));
+    if (standaloneSensors.length > 0) {
+      structuredText += `感應器狀態: ${standaloneSensors.map(b => b.text).join(', ')}\n`;
+    }
+    
+    // Add other blocks
+    if (lightBlocks.length > 0) {
+      structuredText += `燈光效果: ${lightBlocks.map(b => b.text).join(', ')}\n`;
+    }
+    
+    if (soundBlocks.length > 0) {
+      structuredText += `聲音效果: ${soundBlocks.map(b => b.text).join(', ')}\n`;
+    }
+    
+    // If hierarchy data is available, use it to show structure
+    if (hierarchy && hierarchy.pseudoCode) {
+      structuredText += `\n程式結構:\n${hierarchy.pseudoCode}`;
+    }
+    
+    console.log('[SPIKE Advisor] 📋 Generated structured text:', structuredText);
+    return structuredText;
+  }
+
   // Generate AI summary of what the code does
-  async function generateAISummary(blocks: any[]) {
+  async function generateAISummary(blocks: any[], hierarchy?: any) {
     if (!blocks || blocks.length === 0) {
       setAiSummary('等待積木資料... (Waiting for block data)');
       return;
@@ -270,6 +353,7 @@ export default function Popup() {
           console.log('[AI Summary] 📋 Generating summary for blocks:', blocks);
     console.log('[AI Summary] 📝 Block texts being sent:', blocks.map(b => b.text));
     console.log('[AI Summary] 🏷️ Block categories being sent:', blocks.map(b => b.category));
+    console.log('[AI Summary] 🌳 Hierarchy data:', hierarchy);
     console.log('[AI Summary] 🔍 Full block data being sent:', JSON.stringify(blocks, null, 2));
       setAiSummary('正在生成摘要... (Generating summary...)');
       
@@ -281,10 +365,11 @@ export default function Popup() {
         },
         body: JSON.stringify({
           code: {
-            summary: "請分析這個程式的邏輯並用簡短的中文描述機器人會做什麼",
+            summary: "請分析這個程式的邏輯並用簡短的中文描述機器人會做什麼。特別注意條件控制（if-then）和感應器觸發的邏輯結構。",
             pickedSymptom: "program-summary",
-            blockText: blocks.map(b => b.text).join(' | '),
-            blocks: blocks
+            blockText: generateStructuredBlockText(blocks, hierarchy),
+            blocks: blocks,
+            hierarchy: hierarchy
           },
           lang: "zh-Hant"
         })
@@ -315,6 +400,193 @@ export default function Popup() {
     }
   }
 
+  // Natural Language to Code Generation - Using proven working AI backend
+  const generateCodeFromPrompt = async () => {
+    if (!naturalLanguagePrompt.trim()) return;
+    
+    setIsGeneratingCode(true);
+    setGeneratedCode('正在生成代碼... (Generating code...)');
+    
+    try {
+      // Use the SAME proven working backend as "Ask AI"
+      const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd3VscXNkYnJwdHJydGtsdWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NjM4NzEsImV4cCI6MjA2OTIzOTg3MX0.ajT317ynsqT0OWwOXroU0GggATbebIRcC5F5nAxVTMg'
+        },
+        body: JSON.stringify({
+          code: {
+            summary: `學生的自然語言需求: "${naturalLanguagePrompt}"\n\n請生成全新的積木程式來實現這個功能。`,
+            pickedSymptom: "natural-language-generation",
+            blockText: `新程式生成需求: ${naturalLanguagePrompt}`,
+            blocks: [] // Don't send existing blocks to avoid confusion
+          },
+          lang: 'zh-Hant'
+        })
+      });
+
+      const data = await response.json();
+      if (data.advice) {
+        setGeneratedCode(data.advice);
+      } else {
+        setGeneratedCode('代碼生成失敗 (Code generation failed)');
+      }
+    } catch (error) {
+      console.error('[Natural Language] Error:', error);
+      setGeneratedCode('代碼生成失敗 (Code generation failed)');
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
+  // Smart Code Suggestions - Using proven working AI backend
+  const fetchSmartSuggestions = async () => {
+    if (!blockData.length) return;
+    
+    try {
+      // Use the SAME proven working backend as "Ask AI"
+      const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd3VscXNkYnJwdHJydGtsdWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NjM4NzEsImV4cCI6MjA2OTIzOTg3MX0.ajT317ynsqT0OWwOXroU0GggATbebIRcC5F5nAxVTMg'
+        },
+        body: JSON.stringify({
+          code: {
+            summary: `智能建議分析: 請分析學生的當前程式並提供3-5個具體改進建議\n\n當前積木: ${blockData.map(b => `${b.category}: ${b.text}`).join(', ')}`,
+            pickedSymptom: "smart-suggestions",
+            blockText: blockData.map(b => `${b.category}: ${b.text}`).join(' | '),
+            blocks: blockData
+          },
+          lang: 'zh-Hant'
+        })
+      });
+
+      const data = await response.json();
+      if (data.advice) {
+        // Parse the advice as smart suggestions
+        const suggestionsText = data.advice;
+        
+        // Create a simple suggestion format
+        const suggestions = [
+          {
+            type: "analysis",
+            title: "智能建議分析",
+            description: suggestionsText,
+            priority: "medium",
+            blockTypes: ["analysis"],
+            code: ""
+          }
+        ];
+        
+        setSmartSuggestions(suggestions);
+      }
+    } catch (error) {
+      console.error('[Smart Suggestions] Error:', error);
+    }
+  };
+
+  // Chatbot Conversation - Using the proven working AI backend
+  const sendChatMessage = async () => {
+    if (!chatInput.trim()) return;
+    
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setIsChatLoading(true);
+    
+    // Add user message to history
+    const newHistory = [...chatHistory, { role: 'user' as const, content: userMessage }];
+    setChatHistory(newHistory);
+    
+    try {
+      // Use the SAME proven working backend as "Ask AI" 
+      const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd3VscXNkYnJwdHJydGtsdWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NjM4NzEsImV4cCI6MjA2OTIzOTg3MX0.ajT317ynsqT0OWwOXroU0GggATbebIRcC5F5nAxVTMg'
+        },
+        body: JSON.stringify({
+          code: {
+            summary: `學生問題: ${userMessage}\n\n對話歷史:\n${newHistory.slice(-4).map(msg => `${msg.role === 'user' ? '學生' : 'AI'}: ${msg.content}`).join('\n')}`,
+            pickedSymptom: "chatbot-conversation", 
+            blockText: blockData.map(b => `${b.category}: ${b.text}`).join(' | '),
+            blocks: blockData
+          },
+          lang: 'zh-Hant'
+        })
+      });
+
+      const data = await response.json();
+      if (data.advice) {
+        setChatHistory([...newHistory, { role: 'assistant', content: data.advice }]);
+      } else {
+        setChatHistory([...newHistory, { role: 'assistant', content: '抱歉，我無法回應你的問題。請再試一次。' }]);
+      }
+    } catch (error) {
+      console.error('[Chatbot] Error:', error);
+      setChatHistory([...newHistory, { role: 'assistant', content: '連接失敗，請檢查網路連線。' }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  // Pin as Window functionality
+  const pinAsWindow = () => {
+    const currentUrl = chrome.runtime.getURL('src/popup/index.html');
+    chrome.windows.create({
+      url: currentUrl,
+      type: 'popup',
+      width: 450,
+      height: 700,
+      focused: true
+    });
+    // Close current popup
+    window.close();
+  };
+
+  // Auto-fetch suggestions when blocks change
+  useEffect(() => {
+    if (blockData.length > 0 && activeAITab === 'suggestions') {
+      fetchSmartSuggestions();
+    }
+  }, [blockData, activeAITab]);
+
+  // Listen for workspace changes from content script
+  useEffect(() => {
+    const handleWorkspaceChanges = (message: any, _sender: any, _sendResponse: any) => {
+      if (message.type === 'WORKSPACE_CHANGED') {
+        console.log('[AI Features] 📝 Workspace changed, updating blocks and suggestions');
+        
+        // Update block data
+        setBlockData(message.blocks || []);
+        
+        // Auto-trigger suggestions if panel is open
+        if (activeAITab === 'suggestions') {
+          setTimeout(() => {
+            fetchSmartSuggestions();
+          }, 1000);
+        }
+        
+        // Auto-generate AI summary if blocks changed significantly
+        if (message.blocks && message.blocks.length > 0) {
+          setTimeout(() => {
+            generateAISummary(message.blocks, null);
+          }, 2000);
+        }
+      }
+    };
+
+    // Add listener
+    chrome.runtime.onMessage.addListener(handleWorkspaceChanges);
+    
+    // Cleanup
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleWorkspaceChanges);
+    };
+  }, [activeAITab]);
+
   // Manual refresh function
   function handleRefresh() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs: any[]) => {
@@ -323,9 +595,9 @@ export default function Popup() {
           if (response) {
             setBlockData(response.blocks || []);
             setBlockText(response.text || "");
-            setDebugInfo(`🔄 Manual refresh: ${response.blocks?.length || 0} blocks`);
+            setDebugInfo(`🔄 Manual refresh: ${response.blocks?.length || 0} blocks found`);
             // Generate AI summary only when blocks actually change
-            generateAISummaryIfChanged(response.blocks || []);
+            generateAISummaryIfChanged(response.blocks || [], response.hierarchy);
           } else {
             setDebugInfo('❌ No response from content script');
           }
@@ -343,7 +615,8 @@ export default function Popup() {
     // Force regeneration with current blocks
     if (blockData.length > 0) {
       console.log('[SPIKE Advisor] 🔄 Forcing fresh AI summary generation');
-      generateAISummary(blockData);
+      // Generate with hierarchy data from the last message
+      generateAISummary(blockData, (window as any).__lastHierarchy);
     }
   }
 
@@ -648,7 +921,7 @@ export default function Popup() {
         return `Sound - ${text}`;
       }
       
-      if (category === 'flippersensors') {
+      if (category === 'sensors') {
         return text; // Text is already formatted as "Sensor A is color red"
       }
       
@@ -662,6 +935,15 @@ export default function Popup() {
           return `Control: repeat ${count} times`;
         }
         if (text.includes('if')) {
+          // If this is an enhanced conditional with specific text, preserve it
+          if (text.includes('then') && (
+            text.includes('sensor') || text.includes('Sensor') ||
+            text.includes('reflection') || text.includes('color') || 
+            text.includes('closer') || text.includes('pressed') ||
+            text.includes('motor') || text.includes('move')
+          )) {
+            return `Control: ${text}`;
+          }
           return 'Control: if condition';
         }
         if (text.includes('wait')) {
@@ -765,7 +1047,7 @@ export default function Popup() {
                 🗑️ Clear Cache
               </button>
               <span style={{ fontSize: '11px', color: '#666' }}>
-                Auto-updates when blocks change
+                Smart updates: only when blocks change
               </span>
             </div>
             
@@ -812,48 +1094,320 @@ export default function Popup() {
 
   return (
     <div style={{ width: 400, padding: 16, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      {/* Header with Pin Button */}
       <div style={{ 
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
         color: "white", 
         padding: "12px 16px", 
         borderRadius: "8px 8px 0 0", 
         margin: "-16px -16px 16px -16px",
-        textAlign: "center"
+        position: "relative"
       }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>🤖 SPIKE AI Error Advisor</h2>
         <p style={{ margin: "4px 0 0 0", fontSize: 12, opacity: 0.9 }}>
           LEGO SPIKE Prime 智能除錯助手
         </p>
+        
+        {/* Pin as Window Button */}
+        <button
+          onClick={pinAsWindow}
+          style={{
+            position: "absolute",
+            top: "12px",
+            right: "12px",
+            background: "rgba(255,255,255,0.2)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: "4px",
+            color: "white",
+            padding: "4px 8px",
+            fontSize: "11px",
+            cursor: "pointer",
+            fontWeight: "500"
+          }}
+          title="Pin as separate window"
+        >
+          📌 Pin
+        </button>
       </div>
 
-      {/* Quick Fix Dropdown */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ 
-          color: "#2C3E50", 
-          fontSize: 13, 
-          margin: "14px 0 8px 0",
-          fontWeight: 500
-        }}>
-          請選擇一項症狀或問題獲得建議：<br />
-          Select the issue you are facing to get help.
+      {/* AI Assistant Panel - TOP SECTION */}
+      <div style={{ marginBottom: 16, border: "2px solid #667eea", borderRadius: "8px", padding: "12px" }}>
+        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", color: "#667eea", display: "flex", alignItems: "center" }}>
+          🤖 AI 助手 / AI Assistant
+        </h3>
+        
+        {/* AI Feature Tabs */}
+        <div style={{ display: "flex", gap: "4px", marginBottom: "16px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setActiveAITab(activeAITab === 'chat' ? null : 'chat')}
+            style={{
+              background: activeAITab === 'chat' ? '#667eea' : '#f8f9fa',
+              color: activeAITab === 'chat' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              flex: '1'
+            }}
+          >
+            💬 AI 聊天 | AI Chat
+          </button>
+          <button
+            onClick={() => setActiveAITab(activeAITab === 'suggestions' ? null : 'suggestions')}
+            style={{
+              background: activeAITab === 'suggestions' ? '#28a745' : '#f8f9fa',
+              color: activeAITab === 'suggestions' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              flex: '1'
+            }}
+          >
+            💡 智能建議 | AI Suggestions
+          </button>
+          <button
+            onClick={() => setActiveAITab(activeAITab === 'natural' ? null : 'natural')}
+            style={{
+              background: activeAITab === 'natural' ? '#007bff' : '#f8f9fa',
+              color: activeAITab === 'natural' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              flex: '1'
+            }}
+          >
+            🧩 自然語言編程 | Natural Language to Code
+          </button>
         </div>
-        <select
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            border: "1px solid #BDC3C7",
-            borderRadius: 6,
-            fontSize: 14,
-            fontWeight: 500,
-            fontFamily: "inherit"
-          }}
-          value={selectedError}
-          onChange={handleDropdownChange}
-        >
-          {dropdownOptions.map(opt =>
-            <option key={opt.key} value={opt.key}>{opt.label}</option>
-          )}
-        </select>
+
+        {/* AI Chat Interface */}
+        {activeAITab === 'chat' && (
+          <div style={{ 
+            background: '#fffacd', 
+            border: '1px solid #ffd700', 
+            borderRadius: '8px', 
+            padding: '12px'
+          }}>
+            <div style={{
+              background: 'white',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              height: '200px',
+              overflowY: 'auto',
+              padding: '8px',
+              marginBottom: '8px'
+            }}>
+              {chatHistory.length === 0 ? (
+                <div style={{ color: '#666', fontSize: '12px', textAlign: 'center', padding: '20px' }}>
+                  問我任何關於SPIKE Prime編程的問題！
+                </div>
+              ) : (
+                chatHistory.map((msg, index) => (
+                  <div key={index} style={{
+                    marginBottom: '8px',
+                    padding: '6px',
+                    borderRadius: '4px',
+                    background: msg.role === 'user' ? '#e3f2fd' : '#f5f5f5',
+                    fontSize: '12px'
+                  }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                      {msg.role === 'user' ? '你：' : 'AI：'}
+                    </div>
+                    <div>{msg.content}</div>
+                  </div>
+                ))
+              )}
+              {isChatLoading && (
+                <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
+                  AI 正在思考中...
+                </div>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                placeholder="問問題，例如：為什麼我的機器人不會轉彎？"
+                style={{
+                  flex: 1,
+                  padding: '6px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={!chatInput.trim() || isChatLoading}
+                style={{
+                  background: '#ffc107',
+                  color: 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  opacity: (!chatInput.trim() || isChatLoading) ? 0.6 : 1
+                }}
+              >
+                發送
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Smart Suggestions Interface */}
+        {activeAITab === 'suggestions' && (
+          <div style={{ 
+            background: '#f0fff0', 
+            border: '1px solid #90ee90', 
+            borderRadius: '8px', 
+            padding: '12px'
+          }}>
+            <button
+              onClick={fetchSmartSuggestions}
+              style={{
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                marginBottom: '12px'
+              }}
+            >
+              🔄 獲取建議
+            </button>
+            
+            {smartSuggestions.length > 0 ? (
+              <div>
+                {smartSuggestions.map((suggestion, index) => (
+                  <div key={index} style={{
+                    background: 'white',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    padding: '8px',
+                    marginBottom: '8px',
+                    fontSize: '12px'
+                  }}>
+                    <div style={{ fontWeight: 'bold', color: '#006600', marginBottom: '4px' }}>
+                      {suggestion.title}
+                    </div>
+                    <div style={{ color: '#333' }}>
+                      {suggestion.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
+                點擊上方按鈕獲取智能建議
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Natural Language to Code Interface */}
+        {activeAITab === 'natural' && (
+          <div style={{ 
+            background: '#f0f8ff', 
+            border: '1px solid #b3d9ff', 
+            borderRadius: '8px', 
+            padding: '12px'
+          }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#666' }}>
+              用自然語言描述你想要的機器人行為，AI 會為你生成對應的積木代碼。
+            </p>
+            <textarea
+              value={naturalLanguagePrompt}
+              onChange={(e) => setNaturalLanguagePrompt(e.target.value)}
+              placeholder="例如：讓機器人前進直到顏色感應器檢測到紅色，然後停止..."
+              style={{
+                width: '100%',
+                height: '60px',
+                padding: '8px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '12px',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+            />
+            <button
+              onClick={generateCodeFromPrompt}
+              disabled={!naturalLanguagePrompt.trim() || isGeneratingCode}
+              style={{
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                marginTop: '8px',
+                opacity: (!naturalLanguagePrompt.trim() || isGeneratingCode) ? 0.6 : 1
+              }}
+            >
+              {isGeneratingCode ? '生成中...' : '生成積木代碼'}
+            </button>
+            {generatedCode && (
+              <div style={{
+                background: 'white',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                padding: '8px',
+                marginTop: '8px',
+                fontSize: '12px',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {generatedCode}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Issue Troubleshooting - MIDDLE SECTION */}
+      <div style={{ marginBottom: 16 }}>
+        <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#2C3E50" }}>📋 常見問題 / Common Troubles</h3>
+
+        {/* Quick Issue Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {dropdownOptions.slice(1).map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => {
+                setSelectedError(opt.key as ErrorTypeKey);
+                handleDropdownChange({ target: { value: opt.key } } as any);
+              }}
+              style={{
+                background: selectedError === opt.key ? '#667eea' : '#f8f9fa',
+                color: selectedError === opt.key ? 'white' : '#333',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                padding: '8px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                textAlign: 'center',
+                fontWeight: '500'
+              }}
+            >
+              {opt.label.includes('/') ? opt.label.split(' / ')[0] : opt.label}
+            </button>
+          ))}
+        </div>
         
         {/* Quick Fix Output */}
         {output && !loading && (
@@ -986,6 +1540,128 @@ export default function Popup() {
           marginBottom: '6px'
         }}>
           Beta version 0.1
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#007bff',
+          fontWeight: '500'
+        }}>
+          Support: roboyouthtaiwan@gmail.com
+        </div>
+      </div>
+
+      {/* Detected Blocks & Debug Info - COLLAPSIBLE SECTION */}
+      <div style={{ marginBottom: 16 }}>
+        <button
+          onClick={() => setIsDebugCollapsed(!isDebugCollapsed)}
+          style={{
+            background: '#f8f9fa',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            padding: '8px 12px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            width: '100%',
+            justifyContent: 'space-between'
+          }}
+        >
+          <span>🔍 偵測的積木與除錯資訊 / Detected Blocks & Debug Info</span>
+          <span>{isDebugCollapsed ? '▼' : '▲'}</span>
+        </button>
+        
+        {!isDebugCollapsed && (
+          <div style={{ marginTop: '12px' }}>
+            {/* Block Summary */}
+            {blockData && blockData.length > 0 && (
+              <div style={{
+                background: "#f8f9fa",
+                border: "1px solid #e9ecef",
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 12,
+                fontSize: 13,
+                lineHeight: 1.4
+              }}>
+                <h3 style={{ margin: "0 0 8px 0", color: "#495057", fontSize: 14 }}>
+                  🧩 檢測到的積木設定 (Detected Blocks) ({blockData.length})
+                </h3>
+                
+                {/* Manual Refresh Button */}
+                <div style={{ marginBottom: '8px' }}>
+                  <button
+                    onClick={handleRefresh}
+                    className="refresh-btn"
+                    style={{
+                      background: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      marginRight: '8px'
+                    }}
+                  >
+                    🔄 Refresh
+                  </button>
+                  <button
+                    onClick={clearAiCache}
+                    style={{
+                      background: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️ Clear Cache
+                  </button>
+                  <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
+                    Smart updates: only when blocks change
+                  </span>
+                </div>
+
+                {renderBlockSummary()}
+              </div>
+            )}
+
+            {/* AI Summary */}
+            {aiSummary && (
+              <div style={{
+                background: "#e3f2fd",
+                border: "1px solid #2196f3",
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 12,
+                fontSize: 13,
+                lineHeight: 1.4
+              }}>
+                <h3 style={{ margin: "0 0 8px 0", color: "#1976d2", fontSize: 14 }}>
+                  🤖 AI 程式摘要 (AI Program Summary):
+                </h3>
+                <div style={{ whiteSpace: "pre-wrap" }}>{aiSummary}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer Section */}
+      <div style={{
+        borderTop: '1px solid #e9ecef',
+        paddingTop: '12px',
+        textAlign: 'center',
+        fontSize: '11px',
+        color: '#868e96',
+        marginTop: '20px'
+      }}>
+        <div style={{ marginBottom: '6px' }}>
+          Beta version 0.2 - Enhanced with AI Assistant
         </div>
         <div style={{ 
           fontSize: '11px', 
