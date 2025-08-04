@@ -61,6 +61,105 @@ const errorAdviceMap: Record<Exclude<ErrorTypeKey, "">, {
   }
 };
 
+// Helper function to get bilingual labels
+const getBilingualLabel = (key: string, selectedLang: string) => {
+  const labels: any = {
+    "": {
+      en: "👇 Select an issue",
+      'zh-TW': "👇 請選擇遇到的問題 / Select an issue",
+      'zh-CN': "👇 请选择遇到的问题 / Select an issue",
+      es: "👇 Selecciona un problema / Select an issue",
+      hi: "👇 समस्या चुनें / Select an issue",
+      ar: "👇 اختر مشكلة / Select an issue",
+      pt: "👇 Selecione um problema / Select an issue",
+      bn: "👇 সমস্যা নির্বাচন করুন / Select an issue",
+      ru: "👇 Выберите проблему / Select an issue",
+      fr: "👇 Sélectionnez un problème / Select an issue",
+      id: "👇 Pilih masalah / Select an issue"
+    },
+    motor: {
+      en: "Motor Not Moving",
+      'zh-TW': "馬達未啟動 / Motor Not Moving",
+      'zh-CN': "马达未启动 / Motor Not Moving",
+      es: "Motor No Se Mueve / Motor Not Moving",
+      hi: "मोटर नहीं चल रहा / Motor Not Moving",
+      ar: "المحرك لا يتحرك / Motor Not Moving",
+      pt: "Motor Não Se Move / Motor Not Moving",
+      bn: "মোটর চলছে না / Motor Not Moving",
+      ru: "Мотор Не Движется / Motor Not Moving",
+      fr: "Moteur Ne Bouge Pas / Motor Not Moving",
+      id: "Motor Tidak Bergerak / Motor Not Moving"
+    },
+    direction: {
+      en: "Wrong Direction",
+      'zh-TW': "機器人方向錯誤 / Wrong Direction",
+      'zh-CN': "机器人方向错误 / Wrong Direction",
+      es: "Dirección Incorrecta / Wrong Direction",
+      hi: "गलत दिशा / Wrong Direction",
+      ar: "اتجاه خاطئ / Wrong Direction",
+      pt: "Direção Errada / Wrong Direction",
+      bn: "ভুল দিক / Wrong Direction",
+      ru: "Неправильное Направление / Wrong Direction",
+      fr: "Mauvaise Direction / Wrong Direction",
+      id: "Arah Salah / Wrong Direction"
+    },
+    "not-starting": {
+      en: "Code Not Starting",
+      'zh-TW': "程式未開始 / Code Not Starting",
+      'zh-CN': "程序未开始 / Code Not Starting",
+      es: "Código No Inicia / Code Not Starting",
+      hi: "कोड शुरू नहीं हो रहा / Code Not Starting",
+      ar: "الكود لا يبدأ / Code Not Starting",
+      pt: "Código Não Inicia / Code Not Starting",
+      bn: "কোড শুরু হচ্ছে না / Code Not Starting",
+      ru: "Код Не Запускается / Code Not Starting",
+      fr: "Code Ne Démarre Pas / Code Not Starting",
+      id: "Kode Tidak Mulai / Code Not Starting"
+    },
+    stop: {
+      en: "Can't Stop",
+      'zh-TW': "無法停止 / Can't Stop",
+      'zh-CN': "无法停止 / Can't Stop",
+      es: "No Puede Parar / Can't Stop",
+      hi: "रुक नहीं सकता / Can't Stop",
+      ar: "لا يمكن التوقف / Can't Stop",
+      pt: "Não Consegue Parar / Can't Stop",
+      bn: "থামতে পারছে না / Can't Stop",
+      ru: "Не Может Остановиться / Can't Stop",
+      fr: "Ne Peut Pas S'Arrêter / Can't Stop",
+      id: "Tidak Bisa Berhenti / Can't Stop"
+    },
+    sensor: {
+      en: "Sensor Not Responding",
+      'zh-TW': "感應器無反應 / Sensor Not Responding",
+      'zh-CN': "传感器无反应 / Sensor Not Responding",
+      es: "Sensor No Responde / Sensor Not Responding",
+      hi: "सेंसर जवाब नहीं दे रहा / Sensor Not Responding",
+      ar: "المستشعر لا يستجيب / Sensor Not Responding",
+      pt: "Sensor Não Responde / Sensor Not Responding",
+      bn: "সেন্সর সাড়া দিচ্ছে না / Sensor Not Responding",
+      ru: "Датчик Не Отвечает / Sensor Not Responding",
+      fr: "Capteur Ne Répond Pas / Sensor Not Responding",
+      id: "Sensor Tidak Merespons / Sensor Not Responding"
+    },
+    other: {
+      en: "Other / Not Listed",
+      'zh-TW': "其他／未列出問題 / Other",
+      'zh-CN': "其他／未列出问题 / Other",
+      es: "Otro / No Listado / Other",
+      hi: "अन्य / सूचीबद्ध नहीं / Other",
+      ar: "أخرى / غير مدرجة / Other",
+      pt: "Outro / Não Listado / Other",
+      bn: "অন্যান্য / তালিকাভুক্ত নয় / Other",
+      ru: "Другое / Не Указано / Other",
+      fr: "Autre / Non Répertorié / Other",
+      id: "Lainnya / Tidak Terdaftar / Other"
+    }
+  };
+  
+  return labels[key]?.[selectedLang] || labels[key]?.en || key;
+};
+
 const dropdownOptions: { key: ErrorTypeKey; label: string }[] = [
   { key: "", label: "👇 請選擇遇到的問題 Select an issue" },
   { key: "motor", label: "馬達未啟動 / Motor Not Moving" },
@@ -128,9 +227,9 @@ function getCustomSensorAdvice(blocks: any[]) {
 export default function Popup() {
   const [output, setOutput] = useState('');
   const [selectedError, setSelectedError] = useState<ErrorTypeKey>('');
-  const [codeSummary, setCodeSummary] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [blockText, setBlockText] = useState('');
+
+
+
   const [blockData, setBlockData] = useState<any[]>([]);
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [isBlockPanelCollapsed, setIsBlockPanelCollapsed] = useState<boolean>(false);
@@ -146,7 +245,226 @@ export default function Popup() {
   const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
   const [activeAITab, setActiveAITab] = useState<'chat' | 'suggestions' | 'natural' | null>(null);
   const [isDebugCollapsed, setIsDebugCollapsed] = useState<boolean>(true);
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'zh-TW' | 'zh-CN' | 'es' | 'hi' | 'ar' | 'pt' | 'bn' | 'ru' | 'fr' | 'id'>(() => {
+    const saved = localStorage.getItem('spike-ai-language');
+    return (saved as any) || 'zh-TW';
+  });
+  const [stickyMode, setStickyMode] = useState(() => {
+    const saved = localStorage.getItem('spike-ai-sticky-mode');
+    return saved === 'true';
+  });
   
+  // Language text helper - expanded for all languages
+  const getText = (texts: any) => {
+    return texts[selectedLanguage] || texts.en;
+  };
+
+  // AI Prompts in different languages
+  const getAIPrompts = () => {
+    const prompts: any = {
+      'en': {
+        programAnalysis: "Please analyze this program's logic and briefly describe in English what the robot will do. Pay special attention to conditional controls (if-then) and sensor-triggered logic structures.",
+        naturalLanguageGeneration: (prompt: string) => `IMPORTANT: Respond in English only. Do not use any other language.
+
+Student's natural language requirement: "${prompt}"
+
+Please generate a completely new block program to implement this functionality. Follow these rules for 'move until condition then stop' patterns:
+
+1. Use a 'repeat until' control block with the movement block inside the loop
+2. Place the stop command outside and after the loop
+3. Do NOT add any more movement blocks after the stop
+4. Ensure robot actions actually STOP once the condition is met
+
+Example pattern:
+- Event Block: 'when program starts'
+- Motor Block: 'set motors A and B speed to 70%'
+- Control Block: 'repeat until distance sensor < 10cm'
+- Motor Block: 'move motors A and B forward 1 rotation'
+- Stop Block: 'stop all motors'
+
+Generate the block sequence in English:`,
+        smartSuggestions: (blocks: string) => `Smart suggestion analysis: Please analyze the student's current program and provide 3-5 specific improvement suggestions\n\nCurrent blocks: ${blocks}`,
+        smartSuggestionsTitle: "Smart Suggestion Analysis",
+        chatConversation: (userMessage: string, history: any[]) => `Student question: ${userMessage}\n\nConversation history:\n${history.map(msg => `${msg.role === 'user' ? 'Student' : 'AI'}: ${msg.content}`).join('\n')}`
+      },
+      'zh-TW': {
+        programAnalysis: "請分析這個程式的邏輯並用簡短的中文描述機器人會做什麼。特別注意條件控制（if-then）和感應器觸發的邏輯結構。",
+        naturalLanguageGeneration: (prompt: string) => `重要：請用繁體中文回答。不要使用其他語言。
+
+學生的自然語言需求: "${prompt}"
+
+請生成全新的積木程式來實現這個功能。對於「移動直到條件然後停止」的模式，請遵循以下規則：
+
+1. 使用「重複直到」控制積木，將移動積木放在迴圈內
+2. 將停止命令放在迴圈外和迴圈後
+3. 停止後不要添加任何更多移動積木
+4. 確保機器人動作在條件滿足時確實停止
+
+範例模式：
+- 事件積木：「當程式開始時」
+- 馬達積木：「設定馬達 A 和 B 速度為 70%」
+- 控制積木：「重複直到距離感應器 < 10cm」
+- 馬達積木：「馬達 A 和 B 向前移動 1 圈」
+- 停止積木：「停止所有馬達」
+
+用繁體中文生成積木序列：`,
+        smartSuggestions: (blocks: string) => `智能建議分析: 請分析學生的當前程式並提供3-5個具體改進建議\n\n當前積木: ${blocks}`,
+        smartSuggestionsTitle: "智能建議分析",
+        chatConversation: (userMessage: string, history: any[]) => `學生問題: ${userMessage}\n\n對話歷史:\n${history.map(msg => `${msg.role === 'user' ? '學生' : 'AI'}: ${msg.content}`).join('\n')}`
+      },
+      'zh-CN': {
+        programAnalysis: "请分析这个程序的逻辑并用简短的中文描述机器人会做什么。特别注意条件控制（if-then）和传感器触发的逻辑结构。",
+        naturalLanguageGeneration: (prompt: string) => `重要：请用简体中文回答。不要使用其他语言。
+
+学生的自然语言需求: "${prompt}"
+
+请生成全新的积木程序来实现这个功能。对于「移动直到条件然后停止」的模式，请遵循以下规则：
+
+1. 使用「重复直到」控制积木，将移动积木放在循环内
+2. 将停止命令放在循环外和循环后
+3. 停止后不要添加任何更多移动积木
+4. 确保机器人动作在条件满足时确实停止
+
+示例模式：
+- 事件积木：「当程序开始时」
+- 马达积木：「设定马达 A 和 B 速度为 70%」
+- 控制积木：「重复直到距离传感器 < 10cm」
+- 马达积木：「马达 A 和 B 向前移动 1 圈」
+- 停止积木：「停止所有马达」
+
+用简体中文生成积木序列：`,
+        smartSuggestions: (blocks: string) => `智能建议分析: 请分析学生的当前程序并提供3-5个具体改进建议\n\n当前积木: ${blocks}`,
+        smartSuggestionsTitle: "智能建议分析",
+        chatConversation: (userMessage: string, history: any[]) => `学生问题: ${userMessage}\n\n对话历史:\n${history.map(msg => `${msg.role === 'user' ? '学生' : 'AI'}: ${msg.content}`).join('\n')}`
+      },
+      'es': {
+        programAnalysis: "Por favor analiza la lógica de este programa y describe brevemente en español qué hará el robot. Presta especial atención a los controles condicionales (si-entonces) y las estructuras lógicas activadas por sensores.",
+        naturalLanguageGeneration: (prompt: string) => `IMPORTANTE: Responde solo en español. No uses ningún otro idioma.
+
+Requisito en lenguaje natural del estudiante: "${prompt}"
+
+Por favor genera un programa de bloques completamente nuevo para implementar esta funcionalidad. Para patrones de 'mover hasta condición luego parar', sigue estas reglas:
+
+1. Usa un bloque de control 'repetir hasta' con el bloque de movimiento dentro del bucle
+2. Coloca el comando de parada fuera y después del bucle
+3. NO agregues más bloques de movimiento después de la parada
+4. Asegúrate de que las acciones del robot realmente SE DETENGAN una vez que se cumpla la condición
+
+Patrón de ejemplo:
+- Bloque de evento: 'cuando el programa comience'
+- Bloque de motor: 'establecer velocidad de motores A y B al 70%'
+- Bloque de control: 'repetir hasta sensor de distancia < 10cm'
+- Bloque de motor: 'mover motores A y B hacia adelante 1 rotación'
+- Bloque de parada: 'parar todos los motores'
+
+Genera la secuencia de bloques en español:`,
+        smartSuggestions: (blocks: string) => `Análisis de sugerencias inteligentes: Por favor analiza el programa actual del estudiante y proporciona 3-5 sugerencias específicas de mejora\n\nBloques actuales: ${blocks}`,
+        smartSuggestionsTitle: "Análisis de Sugerencias Inteligentes",
+        chatConversation: (userMessage: string, history: any[]) => `Pregunta del estudiante: ${userMessage}\n\nHistorial de conversación:\n${history.map(msg => `${msg.role === 'user' ? 'Estudiante' : 'AI'}: ${msg.content}`).join('\n')}`
+      },
+      'fr': {
+        programAnalysis: "Veuillez analyser la logique de ce programme et décrire brièvement en français ce que le robot va faire. Portez une attention particulière aux contrôles conditionnels (si-alors) et aux structures logiques déclenchées par les capteurs.",
+        naturalLanguageGeneration: (prompt: string) => `IMPORTANT: Répondez uniquement en français. N'utilisez aucune autre langue.
+
+Exigence en langage naturel de l'étudiant: "${prompt}"
+
+Veuillez générer un programme de blocs entièrement nouveau pour implémenter cette fonctionnalité. Pour les modèles 'se déplacer jusqu'à condition puis arrêter', suivez ces règles:
+
+1. Utilisez un bloc de contrôle 'répéter jusqu'à' avec le bloc de mouvement à l'intérieur de la boucle
+2. Placez la commande d'arrêt à l'extérieur et après la boucle
+3. N'ajoutez PAS plus de blocs de mouvement après l'arrêt
+4. Assurez-vous que les actions du robot s'arrêtent réellement une fois la condition remplie
+
+Modèle d'exemple:
+- Bloc d'événement: 'quand le programme commence'
+- Bloc moteur: 'définir la vitesse des moteurs A et B à 70%'
+- Bloc de contrôle: 'répéter jusqu'à capteur de distance < 10cm'
+- Bloc moteur: 'déplacer les moteurs A et B vers l'avant 1 rotation'
+- Bloc d'arrêt: 'arrêter tous les moteurs'
+
+Générez la séquence de blocs en français:`,
+        smartSuggestions: (blocks: string) => `Analyse de suggestions intelligentes: Veuillez analyser le programme actuel de l'étudiant et fournir 3-5 suggestions d'amélioration spécifiques\n\nBlocs actuels: ${blocks}`,
+        smartSuggestionsTitle: "Analyse de Suggestions Intelligentes",
+        chatConversation: (userMessage: string, history: any[]) => `Question de l'étudiant: ${userMessage}\n\nHistorique de conversation:\n${history.map(msg => `${msg.role === 'user' ? 'Étudiant' : 'IA'}: ${msg.content}`).join('\n')}`
+      },
+      'ar': {
+        programAnalysis: "يرجى تحليل منطق هذا البرنامج ووصف ما سيفعله الروبوت بإيجاز باللغة العربية. انتبه بشكل خاص للتحكم الشرطي (إذا-إذن) والهياكل المنطقية المحفزة بالمستشعرات.",
+        naturalLanguageGeneration: (prompt: string) => `مهم: أجب باللغة العربية فقط. لا تستخدم أي لغة أخرى.
+
+متطلبات الطالب باللغة الطبيعية: "${prompt}"
+
+يرجى إنشاء برنامج كتل جديد تماماً لتنفيذ هذه الوظيفة. لأنماط 'التحرك حتى الشرط ثم التوقف'، اتبع هذه القواعد:
+
+1. استخدم كتلة تحكم 'كرر حتى' مع كتلة الحركة داخل الحلقة
+2. ضع أمر التوقف خارج وبعد الحلقة
+3. لا تضيف أي كتل حركة أخرى بعد التوقف
+4. تأكد من أن إجراءات الروبوت تتوقف فعلاً بمجرد استيفاء الشرط
+
+نمط المثال:
+- كتلة الحدث: 'عندما يبدأ البرنامج'
+- كتلة المحرك: 'تعيين سرعة المحركات A و B إلى 70%'
+- كتلة التحكم: 'كرر حتى مستشعر المسافة < 10 سم'
+- كتلة المحرك: 'تحريك المحركات A و B للأمام دورة واحدة'
+- كتلة التوقف: 'إيقاف جميع المحركات'
+
+أنشئ تسلسل الكتل باللغة العربية:`,
+        smartSuggestions: (blocks: string) => `تحليل الاقتراحات الذكية: يرجى تحليل برنامج الطالب الحالي وتقديم 3-5 اقتراحات تحسين محددة\n\nالكتل الحالية: ${blocks}`,
+        smartSuggestionsTitle: "تحليل الاقتراحات الذكية",
+        chatConversation: (userMessage: string, history: any[]) => `سؤال الطالب: ${userMessage}\n\nسجل المحادثة:\n${history.map(msg => `${msg.role === 'user' ? 'الطالب' : 'الذكاء الاصطناعي'}: ${msg.content}`).join('\n')}`
+      }
+    };
+
+    // For languages without specific prompts, use English as fallback
+    return prompts[selectedLanguage] || prompts.en;
+  };
+  
+  // Convert UI language to API language format
+  const getApiLanguage = () => {
+    const languageMap = {
+      'en': 'en',
+      'zh-TW': 'zh-Hant',
+      'zh-CN': 'zh-Hans', 
+      'es': 'es',
+      'hi': 'hi',
+      'ar': 'ar',
+      'pt': 'pt',
+      'bn': 'bn',
+      'ru': 'ru',
+      'fr': 'fr',
+      'id': 'id'
+    };
+    return languageMap[selectedLanguage] || 'en';
+  };
+  
+  // Save language preference
+  useEffect(() => {
+    localStorage.setItem('spike-ai-language', selectedLanguage);
+  }, [selectedLanguage]);
+
+  // Save sticky mode preference and handle sticky behavior
+  useEffect(() => {
+    localStorage.setItem('spike-ai-sticky-mode', stickyMode.toString());
+  }, [stickyMode]);
+
+  // Handle beforeunload to inform about developer tools method
+  useEffect(() => {
+    if (stickyMode) {
+      const handleBeforeUnload = () => {
+        localStorage.setItem('spike-ai-show-dev-tools-tip', 'true');
+      };
+      
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+  }, [stickyMode]);
+
+  // Toggle sticky mode
+  const toggleStickyMode = () => {
+    setStickyMode(!stickyMode);
+  };
+
+
+
   // Persistent cache that survives component remounts
   const getAiSummaryCache = (): {[key: string]: string} => {
     try {
@@ -223,7 +541,7 @@ export default function Popup() {
         // Store hierarchy globally for cache clearing
         (window as any).__lastHierarchy = msg.data.hierarchy;
         setBlockData(msg.data.blocks || []);
-        setBlockText(msg.data.text || '');
+
         setDebugInfo(`🔄 Blocks changed: ${msg.data.blocks?.length || 0} blocks detected`);
         // Generate AI summary only when blocks actually change
         generateAISummaryIfChanged(msg.data.blocks || [], msg.data.hierarchy);
@@ -241,7 +559,7 @@ export default function Popup() {
           if (response && response.blocks) {
             console.log('[SPIKE Advisor Popup] Initial response hierarchy:', response.hierarchy);
             setBlockData(response.blocks || []);
-            setBlockText(response.text || "");
+    
             setDebugInfo(`📊 Initial load: ${response.blocks?.length || 0} blocks`);
             // Generate AI summary on initial load
             generateAISummaryIfChanged(response.blocks || [], response.hierarchy);
@@ -254,7 +572,7 @@ export default function Popup() {
                 if (retryResponse && retryResponse.blocks) {
                   console.log('[SPIKE Advisor Popup] Retry response hierarchy:', retryResponse.hierarchy);
                   setBlockData(retryResponse.blocks || []);
-                  setBlockText(retryResponse.text || "");
+          
                   setDebugInfo(`📊 Retry load: ${retryResponse.blocks?.length || 0} blocks`);
                   // Generate AI summary on retry load
                   generateAISummaryIfChanged(retryResponse.blocks || [], retryResponse.hierarchy);
@@ -365,13 +683,13 @@ export default function Popup() {
         },
         body: JSON.stringify({
           code: {
-            summary: "請分析這個程式的邏輯並用簡短的中文描述機器人會做什麼。特別注意條件控制（if-then）和感應器觸發的邏輯結構。",
+            summary: getAIPrompts().programAnalysis,
             pickedSymptom: "program-summary",
             blockText: generateStructuredBlockText(blocks, hierarchy),
             blocks: blocks,
             hierarchy: hierarchy
           },
-          lang: "zh-Hant"
+          lang: getApiLanguage()
         })
       });
 
@@ -392,11 +710,35 @@ export default function Popup() {
         console.log('[AI Summary] ✅ Cached AI summary for hash:', currentHash.substring(0, 50) + '...');
       } else {
         console.error('[AI Summary] No advice in response:', data);
-        setAiSummary('無法生成摘要 (Unable to generate summary)');
+        setAiSummary(getText({
+          en: 'Unable to generate summary',
+          'zh-TW': '無法生成摘要',
+          'zh-CN': '无法生成摘要',
+          es: 'No se pudo generar el resumen',
+          hi: 'सारांश उत्पन्न नहीं कर सका',
+          ar: 'تعذر إنشاء الملخص',
+          pt: 'Não foi possível gerar o resumo',
+          bn: 'সারাংশ তৈরি করা যায়নি',
+          ru: 'Не удалось создать сводку',
+          fr: 'Impossible de générer le résumé',
+          id: 'Tidak dapat menghasilkan ringkasan'
+        }));
       }
     } catch (error) {
       console.error('[AI Summary] Error generating AI summary:', error);
-      setAiSummary('摘要生成失敗 (Summary generation failed)');
+      setAiSummary(getText({
+        en: 'Summary generation failed',
+        'zh-TW': '摘要生成失敗',
+        'zh-CN': '摘要生成失败',
+        es: 'Falló la generación del resumen',
+        hi: 'सारांश जनरेशन विफल',
+        ar: 'فشل إنشاء الملخص',
+        pt: 'Falha na geração do resumo',
+        bn: 'সারাংশ জেনারেশন ব্যর্থ',
+        ru: 'Ошибка генерации сводки',
+        fr: 'Échec de la génération du résumé',
+        id: 'Pembuatan ringkasan gagal'
+      }));
     }
   }
 
@@ -405,9 +747,31 @@ export default function Popup() {
     if (!naturalLanguagePrompt.trim()) return;
     
     setIsGeneratingCode(true);
-    setGeneratedCode('正在生成代碼... (Generating code...)');
+    setGeneratedCode(getText({
+      en: 'Generating code...',
+      'zh-TW': '正在生成代碼...',
+      'zh-CN': '正在生成代码...',
+      es: 'Generando código...',
+      hi: 'कोड बन रहा है...',
+      ar: 'يتم إنشاء الكود...',
+      pt: 'Gerando código...',
+      bn: 'কোড তৈরি হচ্ছে...',
+      ru: 'Генерация кода...',
+      fr: 'Génération du code...',
+      id: 'Menghasilkan kode...'
+    }));
     
     try {
+      // Clear any existing AI cache to ensure fresh response
+      clearAiCache();
+      
+      const currentLanguage = getApiLanguage();
+      const currentPrompt = getAIPrompts().naturalLanguageGeneration(naturalLanguagePrompt);
+      
+      console.log('[Natural Language] 🌍 Current language:', selectedLanguage);
+      console.log('[Natural Language] 🔤 API language:', currentLanguage);
+      console.log('[Natural Language] 📝 Prompt being sent:', currentPrompt);
+      
       // Use the SAME proven working backend as "Ask AI"
       const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
         method: 'POST',
@@ -417,24 +781,64 @@ export default function Popup() {
         },
         body: JSON.stringify({
           code: {
-            summary: `學生的自然語言需求: "${naturalLanguagePrompt}"\n\n請生成全新的積木程式來實現這個功能。`,
+            summary: currentPrompt,
             pickedSymptom: "natural-language-generation",
-            blockText: `新程式生成需求: ${naturalLanguagePrompt}`,
+            blockText: `${getText({
+              en: 'New program generation request:',
+              'zh-TW': '新程式生成需求:',
+              'zh-CN': '新程序生成需求:',
+              es: 'Solicitud de generación de programa:',
+              hi: 'नया प्रोग्राम जनरेशन अनुरोध:',
+              ar: 'طلب إنشاء برنامج جديد:',
+              pt: 'Solicitação de geração de programa:',
+              bn: 'নতুন প্রোগ্রাম জেনারেশন অনুরোধ:',
+              ru: 'Запрос на генерацию программы:',
+              fr: 'Demande de génération de programme:',
+              id: 'Permintaan pembuatan program baru:'
+            })} ${naturalLanguagePrompt}`,
             blocks: [] // Don't send existing blocks to avoid confusion
           },
-          lang: 'zh-Hant'
+          lang: currentLanguage,
+          timestamp: Date.now() // Add timestamp to prevent caching
         })
       });
 
+      console.log('[Natural Language] 📡 Response status:', response.status);
       const data = await response.json();
+      console.log('[Natural Language] 📄 Response data:', data);
+      
       if (data.advice) {
         setGeneratedCode(data.advice);
       } else {
-        setGeneratedCode('代碼生成失敗 (Code generation failed)');
+        setGeneratedCode(getText({
+          en: 'Code generation failed',
+          'zh-TW': '代碼生成失敗',
+          'zh-CN': '代码生成失败',
+          es: 'Falló la generación de código',
+          hi: 'कोड जनरेशन विफल',
+          ar: 'فشل إنشاء الكود',
+          pt: 'Falha na geração de código',
+          bn: 'কোড জেনারেশন ব্যর্থ',
+          ru: 'Ошибка генерации кода',
+          fr: 'Échec de la génération de code',
+          id: 'Pembuatan kode gagal'
+        }));
       }
     } catch (error) {
       console.error('[Natural Language] Error:', error);
-      setGeneratedCode('代碼生成失敗 (Code generation failed)');
+      setGeneratedCode(getText({
+        en: 'Code generation failed',
+        'zh-TW': '代碼生成失敗',
+        'zh-CN': '代码生成失败',
+        es: 'Falló la generación de código',
+        hi: 'कोड जनरेशन विफल',
+        ar: 'فشل إنشاء الكود',
+        pt: 'Falha na geração de código',
+        bn: 'কোড জেনারেশন ব্যর্থ',
+        ru: 'Ошибка генерации кода',
+        fr: 'Échec de la génération de code',
+        id: 'Pembuatan kode gagal'
+      }));
     } finally {
       setIsGeneratingCode(false);
     }
@@ -454,12 +858,12 @@ export default function Popup() {
         },
         body: JSON.stringify({
           code: {
-            summary: `智能建議分析: 請分析學生的當前程式並提供3-5個具體改進建議\n\n當前積木: ${blockData.map(b => `${b.category}: ${b.text}`).join(', ')}`,
+            summary: getAIPrompts().smartSuggestions(blockData.map(b => `${b.category}: ${b.text}`).join(', ')),
             pickedSymptom: "smart-suggestions",
             blockText: blockData.map(b => `${b.category}: ${b.text}`).join(' | '),
             blocks: blockData
           },
-          lang: 'zh-Hant'
+          lang: getApiLanguage()
         })
       });
 
@@ -472,7 +876,7 @@ export default function Popup() {
         const suggestions = [
           {
             type: "analysis",
-            title: "智能建議分析",
+            title: getAIPrompts().smartSuggestionsTitle,
             description: suggestionsText,
             priority: "medium",
             blockTypes: ["analysis"],
@@ -500,6 +904,13 @@ export default function Popup() {
     setChatHistory(newHistory);
     
     try {
+      const currentLanguage = getApiLanguage();
+      const currentPrompt = getAIPrompts().chatConversation(userMessage, newHistory.slice(-4));
+      
+      console.log('[Chat] 🌍 Current language:', selectedLanguage);
+      console.log('[Chat] 🔤 API language:', currentLanguage);
+      console.log('[Chat] 📝 Prompt being sent:', currentPrompt);
+      
       // Use the SAME proven working backend as "Ask AI" 
       const response = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
         method: 'POST',
@@ -509,42 +920,58 @@ export default function Popup() {
         },
         body: JSON.stringify({
           code: {
-            summary: `學生問題: ${userMessage}\n\n對話歷史:\n${newHistory.slice(-4).map(msg => `${msg.role === 'user' ? '學生' : 'AI'}: ${msg.content}`).join('\n')}`,
+            summary: currentPrompt,
             pickedSymptom: "chatbot-conversation", 
             blockText: blockData.map(b => `${b.category}: ${b.text}`).join(' | '),
             blocks: blockData
           },
-          lang: 'zh-Hant'
+          lang: currentLanguage,
+          timestamp: Date.now() // Add timestamp to prevent caching
         })
       });
 
+      console.log('[Chat] 📡 Response status:', response.status);
       const data = await response.json();
+      console.log('[Chat] 📄 Response data:', data);
+      
       if (data.advice) {
         setChatHistory([...newHistory, { role: 'assistant', content: data.advice }]);
       } else {
-        setChatHistory([...newHistory, { role: 'assistant', content: '抱歉，我無法回應你的問題。請再試一次。' }]);
+        setChatHistory([...newHistory, { role: 'assistant', content: getText({
+          en: 'Sorry, I cannot respond to your question. Please try again.',
+          'zh-TW': '抱歉，我無法回應你的問題。請再試一次。',
+          'zh-CN': '抱歉，我无法回应你的问题。请再试一次。',
+          es: 'Lo siento, no puedo responder a tu pregunta. Por favor, inténtalo de nuevo.',
+          hi: 'क्षमा करें, मैं आपके प्रश्न का उत्तर नहीं दे सकता। कृपया पुनः प्रयास करें।',
+          ar: 'عذراً، لا أستطيع الرد على سؤالك. يرجى المحاولة مرة أخرى.',
+          pt: 'Desculpe, não posso responder à sua pergunta. Por favor, tente novamente.',
+          bn: 'দুঃখিত, আমি আপনার প্রশ্নের উত্তর দিতে পারি না। অনুগ্রহ করে আবার চেষ্টা করুন।',
+          ru: 'Извините, я не могу ответить на ваш вопрос. Пожалуйста, попробуйте еще раз.',
+          fr: 'Désolé, je ne peux pas répondre à votre question. Veuillez réessayer.',
+          id: 'Maaf, saya tidak dapat menjawab pertanyaan Anda. Silakan coba lagi.'
+        })}]);
       }
     } catch (error) {
       console.error('[Chatbot] Error:', error);
-      setChatHistory([...newHistory, { role: 'assistant', content: '連接失敗，請檢查網路連線。' }]);
+      setChatHistory([...newHistory, { role: 'assistant', content: getText({
+        en: 'Connection failed, please check your internet connection.',
+        'zh-TW': '連接失敗，請檢查網路連線。',
+        'zh-CN': '连接失败，请检查网络连接。',
+        es: 'Conexión fallida, por favor verifica tu conexión a internet.',
+        hi: 'कनेक्शन विफल, कृपया अपना इंटरनेट कनेक्शन जांचें।',
+        ar: 'فشل الاتصال، يرجى التحقق من اتصال الإنترنت الخاص بك.',
+        pt: 'Falha na conexão, verifique sua conexão com a internet.',
+        bn: 'সংযোগ ব্যর্থ, অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন।',
+        ru: 'Ошибка подключения, проверьте подключение к интернету.',
+        fr: 'Échec de la connexion, veuillez vérifier votre connexion Internet.',
+        id: 'Koneksi gagal, silakan periksa koneksi internet Anda.'
+      })}]);
     } finally {
       setIsChatLoading(false);
     }
   };
 
-  // Pin as Window functionality
-  const pinAsWindow = () => {
-    const currentUrl = chrome.runtime.getURL('src/popup/index.html');
-    chrome.windows.create({
-      url: currentUrl,
-      type: 'popup',
-      width: 450,
-      height: 700,
-      focused: true
-    });
-    // Close current popup
-    window.close();
-  };
+
 
   // Auto-fetch suggestions when blocks change
   useEffect(() => {
@@ -594,7 +1021,7 @@ export default function Popup() {
         chrome.tabs.sendMessage(tabs[0].id, { type: "REQUEST_BLOCKS" }, (response: any) => {
           if (response) {
             setBlockData(response.blocks || []);
-            setBlockText(response.text || "");
+    
             setDebugInfo(`🔄 Manual refresh: ${response.blocks?.length || 0} blocks found`);
             // Generate AI summary only when blocks actually change
             generateAISummaryIfChanged(response.blocks || [], response.hierarchy);
@@ -647,32 +1074,7 @@ export default function Popup() {
     );
   }
 
-  const handleAskAdvice = async () => {
-    setOutput('取得協助中… Getting advice...');
-    setLoading(true);
-    const codeData = {
-      summary: codeSummary,
-      pickedSymptom: selectedError,
-      blockText,
-      blocks: blockData
-    };
-    try {
-      const resp = await fetch('https://rcwulqsdbrptrrtkluhh.supabase.co/functions/v1/llm-advice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd3VscXNkYnJwdHJydGtsdWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NjM4NzEsImV4cCI6MjA2OTIzOTg3MX0.ajT317ynsqT0OWwOXroU0GggATbebIRcC5F5nAxVTMg'
-        },
-        body: JSON.stringify({ code: codeData, lang: 'zh-Hant' }),
-      });
-      const data = await resp.json();
-      setOutput(data.advice || 'No advice returned.');
-    } catch (err) {
-      setOutput('Error fetching advice. Please try again.');
-      console.error(err);
-    }
-    setLoading(false);
-  };
+
 
 
 
@@ -1093,98 +1495,486 @@ export default function Popup() {
   };
 
   return (
-    <div style={{ width: 400, padding: 16, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div style={{ 
+      width: 480, 
+      padding: 20, 
+      fontFamily: "'Inter', 'Nunito', system-ui, -apple-system, sans-serif",
+      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      minHeight: '100vh',
+      boxSizing: 'border-box',
+      borderRadius: '16px',
+      overflow: 'hidden'
+    }}>
+      {/* CSS Variables for consistent theming */}
+      <style>{`
+        :root {
+          --primary-color: #667eea;
+          --primary-light: #a5b4fc;
+          --primary-dark: #4f46e5;
+          --secondary-color: #10b981;
+          --accent-color: #f59e0b;
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --text-muted: #94a3b8;
+          --bg-primary: #ffffff;
+          --bg-secondary: #f8fafc;
+          --bg-accent: #fef3c7;
+          --border-color: #e2e8f0;
+          --border-radius: 12px;
+          --border-radius-sm: 8px;
+          --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+          --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+          --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+          --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+          --spacing-xs: 4px;
+          --spacing-sm: 8px;
+          --spacing-md: 16px;
+          --spacing-lg: 24px;
+          --spacing-xl: 32px;
+          --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .modern-card {
+          background: var(--bg-primary);
+          border-radius: var(--border-radius);
+          box-shadow: var(--shadow-md);
+          border: 1px solid var(--border-color);
+          transition: var(--transition);
+        }
+        
+        .modern-card:hover {
+          box-shadow: var(--shadow-lg);
+          transform: translateY(-1px);
+        }
+        
+        .modern-button {
+          background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+          color: white;
+          border: none;
+          border-radius: var(--border-radius-sm);
+          padding: 10px 16px;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: var(--transition);
+          box-shadow: var(--shadow-sm);
+        }
+        
+        .modern-button:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .modern-button:active {
+          transform: translateY(0);
+        }
+        
+        .modern-button.secondary {
+          background: linear-gradient(135deg, var(--secondary-color) 0%, #059669 100%);
+        }
+        
+        .modern-button.accent {
+          background: linear-gradient(135deg, var(--accent-color) 0%, #d97706 100%);
+        }
+        
+        .pill-tab {
+          background: var(--bg-secondary);
+          color: var(--text-secondary);
+          border: 2px solid var(--border-color);
+          border-radius: 50px;
+          padding: 8px 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .pill-tab:hover {
+          background: var(--primary-light);
+          color: white;
+          border-color: var(--primary-color);
+          transform: translateY(-1px);
+        }
+        
+        .pill-tab.active {
+          background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+          color: white;
+          border-color: var(--primary-color);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .section-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 var(--spacing-md) 0;
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+        }
+        
+        .section-subtitle {
+          font-size: 14px;
+          color: var(--text-secondary);
+          margin: var(--spacing-xs) 0 var(--spacing-md) 0;
+          line-height: 1.5;
+        }
+        
+        .smooth-collapse {
+          transition: var(--transition);
+          overflow: hidden;
+        }
+        
+        .fade-in {
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .bounce-in {
+          animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        @keyframes bounceIn {
+          0% { transform: scale(0.3); opacity: 0; }
+          50% { transform: scale(1.05); }
+          70% { transform: scale(0.9); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .loading-pulse {
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        
+        .slide-in {
+          animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+          from { transform: translateY(-10px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .scale-in {
+          animation: scaleIn 0.2s ease-out;
+        }
+        
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+      {/* Sticky Mode Notification */}
+      {stickyMode && (
+        <div style={{
+          position: 'absolute',
+          top: '4px',
+          left: '16px',
+          right: '16px',
+          background: 'rgba(255, 193, 7, 0.1)',
+          border: '1px solid rgba(255, 193, 7, 0.5)',
+          borderRadius: '6px',
+          padding: '6px 8px',
+          fontSize: '10px',
+          color: '#856404',
+          textAlign: 'center',
+          fontWeight: '500',
+          zIndex: 1000
+        }}>
+          💡 {getText({
+            en: 'Sticky Mode: Right-click this popup → "Inspect" to keep it open permanently!',
+            'zh-TW': '置頂模式：右鍵點擊此彈窗 → "檢查" 來永久保持開啟！',
+            'zh-CN': '置顶模式：右键点击此弹窗 → "检查" 来永久保持开启！',
+            es: 'Modo Pegajoso: Clic derecho en este popup → "Inspeccionar" para mantenerlo abierto permanentemente!',
+            hi: 'स्टिकी मोड: इस पॉपअप पर राइट-क्लिक → "निरीक्षण" करके इसे स्थायी रूप से खुला रखें!',
+            ar: 'وضع الالتصاق: انقر بزر الماوس الأيمن على هذا المنبثق → "فحص" لإبقائه مفتوحاً بشكل دائم!',
+            pt: 'Modo Aderente: Clique direito neste popup → "Inspecionar" para mantê-lo aberto permanentemente!',
+            bn: 'স্টিকি মোড: এই পপআপে রাইট-ক্লিক → "পরিদর্শন" করে স্থায়ীভাবে খোলা রাখুন!',
+            ru: 'Липкий Режим: Правый клик на этом всплывающем окне → "Просмотреть код" чтобы держать его открытым!',
+            fr: 'Mode Collant: Clic droit sur cette popup → "Inspecter" pour la garder ouverte en permanence !',
+            id: 'Mode Lengket: Klik kanan popup ini → "Periksa" untuk menjaganya tetap terbuka secara permanen!'
+          })}
+        </div>
+      )}
+      
+      {/* Close Button (only in sticky mode) */}
+      {stickyMode && (
+        <button
+          onClick={() => setStickyMode(false)}
+          style={{
+            position: 'absolute',
+            top: stickyMode ? '25px' : '8px',
+            right: '8px',
+            background: 'rgba(220, 53, 69, 0.9)',
+            border: 'none',
+            borderRadius: '50%',
+            color: 'white',
+            width: '20px',
+            height: '20px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001,
+            fontWeight: 'bold'
+          }}
+          title="Close Sticky Mode"
+        >
+          ×
+        </button>
+      )}
       {/* Header with Pin Button */}
       <div style={{ 
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
         color: "white", 
-        padding: "12px 16px", 
-        borderRadius: "8px 8px 0 0", 
-        margin: "-16px -16px 16px -16px",
-        position: "relative"
+        padding: "20px 24px", 
+        borderRadius: "16px 16px 0 0", 
+        margin: stickyMode ? "20px -20px 24px -20px" : "-20px -20px 24px -20px",
+        position: "relative",
+        boxShadow: "var(--shadow-xl)",
+        borderBottom: "3px solid rgba(255,255,255,0.1)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        flexWrap: "wrap",
+        gap: "12px"
       }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>🤖 SPIKE AI Error Advisor</h2>
-        <p style={{ margin: "4px 0 0 0", fontSize: 12, opacity: 0.9 }}>
-          LEGO SPIKE Prime 智能除錯助手
-        </p>
+        <div style={{ flex: "1", minWidth: "0" }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', lineHeight: '1.2' }}>
+            {getText({
+              en: '🤖 SPIKE AI Error Advisor',
+              'zh-TW': '🤖 SPIKE AI 錯誤顧問',
+              'zh-CN': '🤖 SPIKE AI 错误顾问',
+              es: '🤖 SPIKE AI Asesor de Errores',
+              hi: '🤖 SPIKE AI त्रुटि सलाहकार',
+              ar: '🤖 SPIKE AI مستشار الأخطاء',
+              pt: '🤖 SPIKE AI Consultor de Erros',
+              bn: '🤖 SPIKE AI ত্রুটি উপদেষ্টা',
+              ru: '🤖 SPIKE AI Консультант по Ошибкам',
+              fr: '🤖 SPIKE AI Conseiller d\'Erreurs',
+              id: '🤖 SPIKE AI Penasihat Kesalahan'
+            })}
+          </h2>
+          <p style={{ margin: "8px 0 0 0", fontSize: 14, opacity: 0.95, fontWeight: 400, lineHeight: '1.3' }}>
+            {getText({
+              en: 'LEGO SPIKE Prime Intelligent Debugging Assistant',
+              'zh-TW': 'LEGO SPIKE Prime 智能除錯助手',
+              'zh-CN': 'LEGO SPIKE Prime 智能调试助手',
+              es: 'Asistente Inteligente de Depuración LEGO SPIKE Prime',
+              hi: 'LEGO SPIKE Prime इंटेलिजेंट डिबगिंग असिस्टेंट',
+              ar: 'مساعد الذكاء الاصطناعي في تصحيح الأخطاء LEGO SPIKE Prime',
+              pt: 'Assistente Inteligente de Depuração LEGO SPIKE Prime',
+              bn: 'LEGO SPIKE Prime ইন্টেলিজেন্ট ডিবাগিং সহকারী',
+              ru: 'Интеллектуальный помощник отладки LEGO SPIKE Prime',
+              fr: 'Assistant Intelligent de Débogage LEGO SPIKE Prime',
+              id: 'Asisten Debugging Cerdas LEGO SPIKE Prime'
+            })}
+          </p>
+        </div>
         
-        {/* Pin as Window Button */}
-        <button
-          onClick={pinAsWindow}
-          style={{
-            position: "absolute",
-            top: "12px",
-            right: "12px",
-            background: "rgba(255,255,255,0.2)",
-            border: "1px solid rgba(255,255,255,0.3)",
-            borderRadius: "4px",
-            color: "white",
-            padding: "4px 8px",
-            fontSize: "11px",
-            cursor: "pointer",
-            fontWeight: "500"
-          }}
-          title="Pin as separate window"
-        >
-          📌 Pin
-        </button>
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          alignItems: "flex-end",
+          flexShrink: 0
+        }}>
+          {/* Sticky Mode & Pin Buttons */}
+          <div style={{
+            display: "flex",
+            gap: "8px"
+          }}>
+            {/* Sticky Mode Button */}
+            <button
+              onClick={toggleStickyMode}
+              style={{
+                background: stickyMode ? "rgba(16, 185, 129, 0.9)" : "rgba(255,255,255,0.15)",
+                border: "2px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                color: "white",
+                padding: "6px 12px",
+                fontSize: "12px",
+                cursor: "pointer",
+                fontWeight: "600",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+              title={stickyMode ? "Exit Sticky Mode" : "Show instructions to keep popup open"}
+            >
+              {stickyMode ? "📍 Sticky" : "📍 Stick"}
+            </button>
+
+
+          </div>
+          
+          {/* Language Dropdown */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <select
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value as 'en' | 'zh-TW' | 'zh-CN' | 'es' | 'hi' | 'ar' | 'pt' | 'bn' | 'ru' | 'fr' | 'id')}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '2px solid var(--border-color)',
+                borderRadius: 'var(--border-radius-sm)',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                transition: 'var(--transition)',
+                boxShadow: 'var(--shadow-sm)',
+                minWidth: '140px'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = 'var(--primary-color)';
+                e.target.style.boxShadow = 'var(--shadow-md)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'var(--border-color)';
+                e.target.style.boxShadow = 'var(--shadow-sm)';
+              }}
+            >
+              <option value="en">🇺🇸 English</option>
+              <option value="zh-CN">🇨🇳 简体中文</option>
+              <option value="hi">🇮🇳 हिन्दी</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="ar">🇸🇦 العربية</option>
+              <option value="bn">🇧🇩 বাংলা</option>
+              <option value="ru">🇷🇺 Русский</option>
+              <option value="pt">🇧🇷 Português</option>
+              <option value="id">🇮🇩 Indonesia</option>
+              <option value="zh-TW">🇹🇼 繁體中文</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* AI Assistant Panel - TOP SECTION */}
-      <div style={{ marginBottom: 16, border: "2px solid #667eea", borderRadius: "8px", padding: "12px" }}>
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", color: "#667eea", display: "flex", alignItems: "center" }}>
-          🤖 AI 助手 / AI Assistant
+      <main className="modern-card" style={{ 
+        marginBottom: 24, 
+        padding: 24,
+        border: "3px solid var(--primary-color)",
+        boxShadow: "var(--shadow-xl)",
+        position: "relative",
+        overflow: "hidden"
+      }}>
+        {/* Elevated effect background */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "4px",
+          background: "linear-gradient(90deg, var(--primary-color) 0%, var(--primary-light) 50%, var(--primary-color) 100%)",
+          borderRadius: "var(--border-radius) var(--border-radius) 0 0"
+        }} />
+        
+        <h3 className="section-title" style={{ color: "var(--primary-color)", fontSize: "20px" }}>
+          {getText({
+            en: '🤖 AI Assistant',
+            'zh-TW': '🤖 AI 助手',
+            'zh-CN': '🤖 AI 助手',
+            es: '🤖 Asistente IA',
+            hi: '🤖 AI सहायक',
+            ar: '🤖 مساعد الذكاء الاصطناعي',
+            pt: '🤖 Assistente IA',
+            bn: '🤖 AI সহায়ক',
+            ru: '🤖 ИИ Помощник',
+            fr: '🤖 Assistant IA',
+            id: '🤖 Asisten AI'
+          })}
         </h3>
         
         {/* AI Feature Tabs */}
-        <div style={{ display: "flex", gap: "4px", marginBottom: "16px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
           <button
             onClick={() => setActiveAITab(activeAITab === 'chat' ? null : 'chat')}
+            className={`pill-tab ${activeAITab === 'chat' ? 'active' : ''}`}
             style={{
-              background: activeAITab === 'chat' ? '#667eea' : '#f8f9fa',
-              color: activeAITab === 'chat' ? 'white' : '#333',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              flex: '1'
+              flex: '1',
+              minWidth: '120px',
+              justifyContent: 'center'
             }}
           >
-            💬 AI 聊天 | AI Chat
+            💬 {getText({
+              en: 'AI Chat',
+              'zh-TW': 'AI 聊天 / AI Chat',
+              'zh-CN': 'AI 聊天 / AI Chat',
+              es: 'Chat IA / AI Chat',
+              hi: 'AI चैट / AI Chat',
+              ar: 'دردشة الذكاء الاصطناعي / AI Chat',
+              pt: 'Chat IA / AI Chat',
+              bn: 'AI চ্যাট / AI Chat',
+              ru: 'ИИ Чат / AI Chat',
+              fr: 'Chat IA / AI Chat',
+              id: 'Chat AI / AI Chat'
+            })}
           </button>
           <button
             onClick={() => setActiveAITab(activeAITab === 'suggestions' ? null : 'suggestions')}
+            className={`pill-tab ${activeAITab === 'suggestions' ? 'active' : ''}`}
             style={{
-              background: activeAITab === 'suggestions' ? '#28a745' : '#f8f9fa',
-              color: activeAITab === 'suggestions' ? 'white' : '#333',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              flex: '1'
+              flex: '1',
+              minWidth: '120px',
+              justifyContent: 'center'
             }}
           >
-            💡 智能建議 | AI Suggestions
+            💡 {getText({
+              en: 'AI Suggestions',
+              'zh-TW': '智能建議 / AI Suggestions',
+              'zh-CN': '智能建议 / AI Suggestions',
+              es: 'Sugerencias IA / AI Suggestions',
+              hi: 'AI सुझाव / AI Suggestions',
+              ar: 'اقتراحات الذكاء الاصطناعي / AI Suggestions',
+              pt: 'Sugestões IA / AI Suggestions',
+              bn: 'AI পরামর্শ / AI Suggestions',
+              ru: 'ИИ Предложения / AI Suggestions',
+              fr: 'Suggestions IA / AI Suggestions',
+              id: 'Saran AI / AI Suggestions'
+            })}
           </button>
           <button
             onClick={() => setActiveAITab(activeAITab === 'natural' ? null : 'natural')}
+            className={`pill-tab ${activeAITab === 'natural' ? 'active' : ''}`}
             style={{
-              background: activeAITab === 'natural' ? '#007bff' : '#f8f9fa',
-              color: activeAITab === 'natural' ? 'white' : '#333',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              flex: '1'
+              flex: '1',
+              minWidth: '120px',
+              justifyContent: 'center'
             }}
           >
-            🧩 自然語言編程 | Natural Language to Code
+            🧩 {getText({
+              en: 'Natural Language to Code',
+              'zh-TW': '程式編程 / Code Generation',
+              'zh-CN': '程序编程 / Code Generation',
+              es: 'Lenguaje Natural a Código / Natural Language to Code',
+              hi: 'प्राकृतिक भाषा से कोड / Natural Language to Code',
+              ar: 'اللغة الطبيعية إلى كود / Natural Language to Code',
+              pt: 'Linguagem Natural para Código / Natural Language to Code',
+              bn: 'প্রাকৃতিক ভাষা থেকে কোড / Natural Language to Code',
+              ru: 'Естественный Язык в Код / Natural Language to Code',
+              fr: 'Langage Naturel vers Code / Natural Language to Code',
+              id: 'Bahasa Alami ke Kode / Natural Language to Code'
+            })}
           </button>
         </div>
 
@@ -1226,8 +2016,33 @@ export default function Popup() {
                 ))
               )}
               {isChatLoading && (
-                <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
-                  AI 正在思考中...
+                <div className="loading-pulse" style={{ 
+                  color: 'var(--text-secondary)', 
+                  fontSize: '13px', 
+                  fontStyle: 'italic',
+                  padding: '12px',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: 'var(--border-radius-sm)',
+                  border: '1px solid var(--border-color)',
+                  margin: '8px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>🤔</span>
+                  {getText({
+                    en: 'AI is thinking...',
+                    'zh-TW': 'AI 正在思考中...',
+                    'zh-CN': 'AI 正在思考中...',
+                    es: 'IA está pensando...',
+                    hi: 'AI सोच रहा है...',
+                    ar: 'الذكاء الاصطناعي يفكر...',
+                    pt: 'IA está pensando...',
+                    bn: 'AI ভাবছে...',
+                    ru: 'ИИ думает...',
+                    fr: 'IA réfléchit...',
+                    id: 'AI sedang berpikir...'
+                  })}
                 </div>
               )}
             </div>
@@ -1313,7 +2128,19 @@ export default function Popup() {
               </div>
             ) : (
               <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
-                點擊上方按鈕獲取智能建議
+                {getText({
+          en: 'Click the button above to get smart suggestions',
+          'zh-TW': '點擊上方按鈕獲取智能建議 / Click the button above to get smart suggestions',
+          'zh-CN': '点击上方按钮获取智能建议 / Click the button above to get smart suggestions',
+          es: 'Haz clic en el botón de arriba para obtener sugerencias inteligentes / Click the button above to get smart suggestions',
+          hi: 'स्मार्ट सुझाव पाने के लिए ऊपरी बटन पर क्लिक करें / Click the button above to get smart suggestions',
+          ar: 'انقر على الزر أعلاه للحصول على اقتراحات ذكية / Click the button above to get smart suggestions',
+          pt: 'Clique no botão acima para obter sugestões inteligentes / Click the button above to get smart suggestions',
+          bn: 'স্মার্ট পরামর্শ পেতে উপরের বোতামে ক্লিক করুন / Click the button above to get smart suggestions',
+          ru: 'Нажмите кнопку выше, чтобы получить умные предложения / Click the button above to get smart suggestions',
+          fr: 'Cliquez sur le bouton ci-dessus pour obtenir des suggestions intelligentes / Click the button above to get smart suggestions',
+          id: 'Klik tombol di atas untuk mendapatkan saran cerdas / Click the button above to get smart suggestions'
+        })}
               </p>
             )}
           </div>
@@ -1325,66 +2152,193 @@ export default function Popup() {
             background: '#f0f8ff', 
             border: '1px solid #b3d9ff', 
             borderRadius: '8px', 
-            padding: '12px'
+            padding: '20px',
+            textAlign: 'center'
           }}>
-            <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#666' }}>
-              用自然語言描述你想要的機器人行為，AI 會為你生成對應的積木代碼。
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#666', textAlign: 'center', lineHeight: '1.5' }}>
+              {getText({
+            en: 'Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you. For "move until condition then stop" patterns, the AI will create proper loop structures.',
+            'zh-TW': '用自然語言描述你想要的機器人行為，AI 會為你生成對應的積木代碼。對於「移動直到條件然後停止」的模式，AI 會創建適當的迴圈結構。 / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            'zh-CN': '用自然语言描述你想要的机器人行为，AI 会为你生成对应的积木代码。对于「移动直到条件然后停止」的模式，AI 会创建适当的循环结构。 / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            es: 'Describe el comportamiento del robot que deseas en lenguaje natural, y la IA generará el código de bloques correspondiente para ti. Para patrones de "mover hasta condición luego parar", la IA creará estructuras de bucle apropiadas. / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            hi: 'प्राकृतिक भाषा में वांछित रोबोट व्यवहार का वर्णन करें, और AI आपके लिए संबंधित ब्लॉक कोड बनाएगा। "शर्त तक चलें फिर रुकें" पैटर्न के लिए, AI उचित लूप संरचनाएं बनाएगा। / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            ar: 'صف سلوك الروبوت المطلوب باللغة الطبيعية، وسيولد الذكاء الاصطناعي كود الكتل المقابل لك. لأنماط "التحرك حتى الشرط ثم التوقف"، سينشئ الذكاء الاصطناعي هياكل حلقة مناسبة. / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            pt: 'Descreva o comportamento do robô que você quer em linguagem natural, e a IA gerará o código de blocos correspondente para você. Para padrões de "mover até condição então parar", a IA criará estruturas de loop apropriadas. / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            bn: 'প্রাকৃতিক ভাষায় আপনার পছন্দের রোবট আচরণ বর্ণনা করুন, এবং AI আপনার জন্য সংশ্লিষ্ট ব্লক কোড তৈরি করবে। "শর্ত পর্যন্ত চলুন তারপর থামুন" প্যাটার্নের জন্য, AI উপযুক্ত লুপ কাঠামো তৈরি করবে। / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            ru: 'Опишите желаемое поведение робота на естественном языке, и ИИ сгенерирует соответствующий блочный код для вас. Для паттернов "двигаться до условия затем остановиться" ИИ создаст соответствующие структуры циклов. / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            fr: 'Décrivez le comportement du robot souhaité en langage naturel, et l\'IA générera le code de blocs correspondant pour vous. Pour les modèles "se déplacer jusqu\'à condition puis arrêter", l\'IA créera des structures de boucle appropriées. / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.',
+            id: 'Deskripsikan perilaku robot yang Anda inginkan dalam bahasa alami, dan AI akan menghasilkan kode blok yang sesuai untuk Anda. Untuk pola "bergerak sampai kondisi lalu berhenti", AI akan membuat struktur loop yang tepat. / Describe the robot behavior you want in natural language, and AI will generate the corresponding block code for you.'
+          })}
             </p>
-            <textarea
-              value={naturalLanguagePrompt}
-              onChange={(e) => setNaturalLanguagePrompt(e.target.value)}
-              placeholder="例如：讓機器人前進直到顏色感應器檢測到紅色，然後停止..."
-              style={{
-                width: '100%',
-                height: '60px',
-                padding: '8px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '12px',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
-            />
-            <button
-              onClick={generateCodeFromPrompt}
-              disabled={!naturalLanguagePrompt.trim() || isGeneratingCode}
-              style={{
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                marginTop: '8px',
-                opacity: (!naturalLanguagePrompt.trim() || isGeneratingCode) ? 0.6 : 1
-              }}
-            >
-              {isGeneratingCode ? '生成中...' : '生成積木代碼'}
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <textarea
+                value={naturalLanguagePrompt}
+                onChange={(e) => setNaturalLanguagePrompt(e.target.value)}
+                placeholder={getText({
+                  en: "Example: Drive forward until color sensor detects red, then stop...",
+                  'zh-TW': "例如：讓機器人前進直到顏色感應器檢測到紅色，然後停止...",
+                  'zh-CN': "例如：让机器人前进直到颜色传感器检测到红色，然后停止...",
+                  es: "Ejemplo: Conducir hacia adelante hasta que el sensor de color detecte rojo, luego parar...",
+                  hi: "उदाहरण: आगे चलें जब तक कि रंग सेंसर लाल का पता न लगाए, फिर रुकें...",
+                  ar: "مثال: قم بالقيادة للأمام حتى يكتشف مستشعر اللون اللون الأحمر، ثم توقف...",
+                  pt: "Exemplo: Dirigir para frente até que o sensor de cor detecte vermelho, depois parar...",
+                  bn: "উদাহরণ: সামনে চালান যতক্ষণ না রঙ সেন্সর লাল সনাক্ত করে, তারপর থামুন...",
+                  ru: "Пример: Двигаться вперед, пока датчик цвета не обнаружит красный, затем остановиться...",
+                  fr: "Exemple: Avancer jusqu'à ce que le capteur de couleur détecte le rouge, puis s'arrêter...",
+                  id: "Contoh: Maju sampai sensor warna mendeteksi merah, lalu berhenti..."
+                })}
+                style={{
+                  width: '90%',
+                  maxWidth: '400px',
+                  height: '60px',
+                  padding: '12px',
+                  border: '2px solid #ddd',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  textAlign: 'center'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={generateCodeFromPrompt}
+                disabled={!naturalLanguagePrompt.trim() || isGeneratingCode}
+                style={{
+                  background: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  opacity: (!naturalLanguagePrompt.trim() || isGeneratingCode) ? 0.6 : 1,
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                {isGeneratingCode ? getText({
+                  en: 'Generating...',
+                  'zh-TW': '生成中...',
+                  'zh-CN': '生成中...',
+                  es: 'Generando...',
+                  hi: 'बन रहा है...',
+                  ar: 'يتم التوليد...',
+                  pt: 'Gerando...',
+                  bn: 'তৈরি হচ্ছে...',
+                  ru: 'Генерация...',
+                  fr: 'Génération...',
+                  id: 'Menghasilkan...'
+                }) : getText({
+                  en: 'Generate Block Code',
+                  'zh-TW': '生成積木代碼',
+                  'zh-CN': '生成积木代码',
+                  es: 'Generar Código de Bloques',
+                  hi: 'ब्लॉक कोड बनाएं',
+                  ar: 'إنشاء كود الكتل',
+                  pt: 'Gerar Código de Blocos',
+                  bn: 'ব্লক কোড তৈরি করুন',
+                  ru: 'Сгенерировать Блочный Код',
+                  fr: 'Générer le Code de Blocs',
+                  id: 'Hasilkan Kode Blok'
+                })}
+              </button>
+            </div>
             {generatedCode && (
               <div style={{
                 background: 'white',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                padding: '8px',
-                marginTop: '8px',
-                fontSize: '12px',
-                whiteSpace: 'pre-wrap'
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                padding: '20px',
+                marginTop: '16px',
+                fontSize: '13px',
+                whiteSpace: 'pre-wrap',
+                textAlign: 'left',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                maxWidth: '90%',
+                margin: '16px auto 0 auto',
+                lineHeight: '1.6'
               }}>
-                {generatedCode}
+                {generatedCode
+                  .replace(/\*\*\*/g, '')
+                  .replace(/\*\*(.*?)\*\*/g, '**$1**')
+                  .split('\n').map((line, index) => {
+                    // Make section headers bold
+                    if (line.includes('Program Goal') || 
+                        line.includes('Complete Block Sequence') || 
+                        line.includes('Recommended Settings') || 
+                        line.includes('Usage Instructions') ||
+                        line.includes('程序目標') ||
+                        line.includes('完整積木序列') ||
+                        line.includes('推薦設定') ||
+                        line.includes('使用說明')) {
+                      return (
+                        <div key={index} style={{
+                          fontWeight: 'bold',
+                          fontSize: '14px',
+                          color: 'var(--primary-color)',
+                          marginTop: index > 0 ? '16px' : '0',
+                          marginBottom: '8px',
+                          borderBottom: '2px solid var(--border-color)',
+                          paddingBottom: '4px'
+                        }}>
+                          {line}
+                        </div>
+                      );
+                    }
+                    // Make numbered items stand out
+                    else if (line.match(/^\d+\./)) {
+                      return (
+                        <div key={index} style={{
+                          fontWeight: '600',
+                          color: 'var(--text-primary)',
+                          marginLeft: '16px',
+                          marginBottom: '4px'
+                        }}>
+                          {line}
+                        </div>
+                      );
+                    }
+                    // Regular text
+                    else {
+                      return (
+                        <div key={index} style={{
+                          color: 'var(--text-secondary)',
+                          marginBottom: '4px'
+                        }}>
+                          {line}
+                        </div>
+                      );
+                    }
+                  })}
               </div>
             )}
           </div>
         )}
-      </div>
+      </main>
 
       {/* Quick Issue Troubleshooting - MIDDLE SECTION */}
-      <div style={{ marginBottom: 16 }}>
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#2C3E50" }}>📋 常見問題 / Common Troubles</h3>
+      <section className="modern-card" style={{ marginBottom: 24, padding: 20 }}>
+        <h3 className="section-title">
+          📋 {getText({
+            en: 'Common Troubles',
+            'zh-TW': '常見問題 / Common Troubles',
+            'zh-CN': '常见问题 / Common Troubles',
+            es: 'Problemas Comunes / Common Troubles',
+            hi: 'सामान्य समस्याएं / Common Troubles',
+            ar: 'المشاكل الشائعة / Common Troubles',
+            pt: 'Problemas Comuns / Common Troubles',
+            bn: 'সাধারণ সমস্যা / Common Troubles',
+            ru: 'Частые Проблемы / Common Troubles',
+            fr: 'Problèmes Courants / Common Troubles',
+            id: 'Masalah Umum / Common Troubles'
+          })}
+        </h3>
 
         {/* Quick Issue Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           {dropdownOptions.slice(1).map(opt => (
             <button
               key={opt.key}
@@ -1392,404 +2346,352 @@ export default function Popup() {
                 setSelectedError(opt.key as ErrorTypeKey);
                 handleDropdownChange({ target: { value: opt.key } } as any);
               }}
+              className={`modern-button ${selectedError === opt.key ? 'active' : 'secondary'}`}
               style={{
-                background: selectedError === opt.key ? '#667eea' : '#f8f9fa',
-                color: selectedError === opt.key ? 'white' : '#333',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                padding: '8px',
-                fontSize: '11px',
+                background: selectedError === opt.key ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                color: selectedError === opt.key ? 'white' : 'var(--text-primary)',
+                border: `2px solid ${selectedError === opt.key ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                borderRadius: 'var(--border-radius-sm)',
+                padding: '12px 8px',
+                fontSize: '12px',
                 cursor: 'pointer',
                 textAlign: 'center',
-                fontWeight: '500'
+                fontWeight: '600',
+                transition: 'var(--transition)',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              {opt.label.includes('/') ? opt.label.split(' / ')[0] : opt.label}
+              {getBilingualLabel(opt.key, selectedLanguage)}
             </button>
           ))}
         </div>
-        
-        {/* Quick Fix Output */}
-        {output && !loading && (
-          <div style={{
-            background: "#f8f9fa",
-            border: "1px solid #e9ecef",
-            borderRadius: 8,
-            padding: 12,
-            marginTop: 8,
-            fontSize: 13,
-            lineHeight: 1.4,
-            color: "#2C3E50"
-          }}>
-            <div style={{ whiteSpace: "pre-wrap" }}>{output}</div>
-          </div>
-        )}
-      </div>
-
-      {/* AI Input Section */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ 
-          color: "#2C3E50", 
-          fontSize: 13, 
-          margin: "10px 0 4px 2px",
-          fontWeight: 500
-        }}>
-          若上述解決方案無法幫助你：<br />
-          If the above doesn't help, please describe your situation and ask the AI:
-        </div>
-        <textarea
-          value={codeSummary}
-          onChange={(e) => setCodeSummary(e.target.value)}
-          placeholder="描述你的問題... / Describe your issue..."
-          style={{
-            width: "100%",
-            height: 60,
-            padding: 8,
-            border: "1px solid #ddd",
-            borderRadius: 6,
-            fontSize: 13,
-            resize: "vertical",
-            fontFamily: "inherit"
-          }}
-        />
-        <button
-          onClick={handleAskAdvice}
-          disabled={loading || !codeSummary.trim()}
-          style={{
-            width: "100%",
-            padding: "8px 16px",
-            marginTop: 6,
-            background: loading ? "#ccc" : "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            fontSize: 13,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: 500
-          }}
-        >
-          {loading ? "🔄 處理中... / Processing..." : "🤖 提問AI / Ask AI"}
-        </button>
-      </div>
+      </section>
 
       {/* AI Advice Display */}
-      {output && !loading && selectedError && (
-        <div style={{
-          background: "#f8f9fa",
-          border: "1px solid #e9ecef",
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 16,
-          fontSize: 13,
-          lineHeight: 1.4
+      {output && selectedError && (
+        <section className="modern-card" style={{
+          background: "linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)",
+          border: "2px solid var(--secondary-color)",
+          borderRadius: "var(--border-radius)",
+          padding: 20,
+          marginBottom: 24,
+          fontSize: 14,
+          lineHeight: 1.6,
+          boxShadow: "var(--shadow-lg)"
         }}>
-          <h3 style={{ margin: "0 0 8px 0", color: "#495057", fontSize: 14 }}>
-            💡 AI 建議 / AI Advice
+          <h3 className="section-title" style={{ color: "var(--secondary-color)", fontSize: "18px" }}>
+            💡 {getText({
+              en: 'AI Advice',
+              'zh-TW': 'AI 建議 / AI Advice',
+              'zh-CN': 'AI 建议 / AI Advice',
+              es: 'Consejo IA / AI Advice',
+              hi: 'AI सलाह / AI Advice',
+              ar: 'نصيحة الذكاء الاصطناعي / AI Advice',
+              pt: 'Conselho IA / AI Advice',
+              bn: 'AI পরামর্শ / AI Advice',
+              ru: 'ИИ Совет / AI Advice',
+              fr: 'Conseil IA / AI Advice',
+              id: 'Saran AI / AI Advice'
+            })}
           </h3>
-          <div style={{ whiteSpace: "pre-wrap" }}>{output}</div>
-        </div>
+          <div style={{ whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>{output}</div>
+        </section>
       )}
 
-      {/* Block Summary */}
-      {renderBlockSummary()}
 
-      {/* Debug Info */}
-      {debugInfo && (
-        <details style={{
-          background: "#fff3cd",
-          border: "1px solid #ffeaa7",
-          borderRadius: 6,
-          padding: 8,
-          fontSize: 11,
-          marginTop: 8
-        }}>
-          <summary style={{ cursor: "pointer", color: "#856404", fontWeight: 500 }}>
-            🔍 Debug Info
-          </summary>
-          <div style={{ marginTop: 4, color: "#856404" }}>{debugInfo}</div>
-        </details>
-      )}
-
-      {/* Footer */}
-      <div style={{
-        marginTop: '24px',
-        padding: '16px',
-        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-        borderRadius: '8px',
-        border: '1px solid #dee2e6',
-        textAlign: 'center'
-      }}>
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: '600', 
-          color: '#495057',
-          marginBottom: '8px'
-        }}>
-          RoboYouth Taiwan
-        </div>
-        <div style={{ 
-          fontSize: '12px', 
-          color: '#6c757d',
-          marginBottom: '4px'
-        }}>
-          Created by Sophie Hsu
-        </div>
-        <div style={{ 
-          fontSize: '11px', 
-          color: '#868e96',
-          marginBottom: '6px'
-        }}>
-          Beta version 0.1
-        </div>
-        <div style={{ 
-          fontSize: '11px', 
-          color: '#007bff',
-          fontWeight: '500'
-        }}>
-          Support: roboyouthtaiwan@gmail.com
-        </div>
-      </div>
 
       {/* Detected Blocks & Debug Info - COLLAPSIBLE SECTION */}
-      <div style={{ marginBottom: 16 }}>
+      <section className="modern-card" style={{ marginBottom: 24 }}>
         <button
           onClick={() => setIsDebugCollapsed(!isDebugCollapsed)}
+          className="modern-button"
           style={{
-            background: '#f8f9fa',
-            border: '1px solid #ddd',
-            borderRadius: '6px',
-            padding: '8px 12px',
-            fontSize: '12px',
+            background: 'var(--bg-secondary)',
+            border: '2px solid var(--border-color)',
+            borderRadius: 'var(--border-radius-sm)',
+            padding: '16px 20px',
+            fontSize: '14px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '12px',
             width: '100%',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            fontWeight: '600',
+            color: 'var(--text-primary)',
+            transition: 'var(--transition)',
+            boxShadow: 'var(--shadow-sm)'
           }}
         >
-          <span>🔍 偵測的積木與除錯資訊 / Detected Blocks & Debug Info</span>
+          <span>
+            {getText({
+              en: '🔍 Debug Info & Detected Blocks',
+              'zh-TW': '🔍 除錯資訊與偵測積木',
+              'zh-CN': '🔍 调试信息与检测积木',
+              es: '🔍 Info de Depuración y Bloques Detectados',
+              hi: '🔍 डिबग जानकारी और खोजे गए ब्लॉक',
+              ar: '🔍 معلومات التشخيص والكتل المكتشفة',
+              pt: '🔍 Info de Depuração e Blocos Detectados',
+              bn: '🔍 ডিবাগ তথ্য এবং খুঁজে পাওয়া ব্লক',
+              ru: '🔍 Отладочная Информация и Обнаруженные Блоки',
+              fr: '🔍 Info de Débogage et Blocs Détectés',
+              id: '🔍 Info Debug & Blok Terdeteksi'
+            })}
+          </span>
           <span>{isDebugCollapsed ? '▼' : '▲'}</span>
         </button>
         
         {!isDebugCollapsed && (
-          <div style={{ marginTop: '12px' }}>
+          <div className="smooth-collapse fade-in" style={{ marginTop: '16px', padding: '0 16px' }}>
+            {/* Debug Info */}
+            {debugInfo && (
+              <div className="modern-card" style={{
+                background: "var(--bg-accent)",
+                border: "2px solid var(--accent-color)",
+                borderRadius: "var(--border-radius)",
+                padding: 16,
+                marginBottom: 16,
+                fontSize: 13,
+                color: "var(--text-primary)",
+                lineHeight: 1.5,
+                boxShadow: "var(--shadow-sm)",
+                maxWidth: "calc(100% - 32px)",
+                margin: "0 auto 16px auto"
+              }}>
+                <h3 className="section-title" style={{ color: "var(--accent-color)", fontSize: "16px" }}>
+                  🔍 {getText({
+                    en: 'Debug Information',
+                    'zh-TW': '除錯資訊 / Debug Information',
+                    'zh-CN': '调试信息 / Debug Information',
+                    es: 'Información de Depuración / Debug Information',
+                    hi: 'डिबग जानकारी / Debug Information',
+                    ar: 'معلومات التشخيص / Debug Information',
+                    pt: 'Informações de Depuração / Debug Information',
+                    bn: 'ডিবাগ তথ্য / Debug Information',
+                    ru: 'Отладочная Информация / Debug Information',
+                    fr: 'Informations de Débogage / Debug Information',
+                    id: 'Informasi Debug / Debug Information'
+                  })}
+                </h3>
+                <div style={{ whiteSpace: "pre-wrap" }}>{debugInfo}</div>
+              </div>
+            )}
+
             {/* Block Summary */}
-            {blockData && blockData.length > 0 && (
-              <div style={{
-                background: "#f8f9fa",
-                border: "1px solid #e9ecef",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 12,
-                fontSize: 13,
-                lineHeight: 1.4
-              }}>
-                <h3 style={{ margin: "0 0 8px 0", color: "#495057", fontSize: 14 }}>
-                  🧩 檢測到的積木設定 (Detected Blocks) ({blockData.length})
-                </h3>
-                
-                {/* Manual Refresh Button */}
-                <div style={{ marginBottom: '8px' }}>
-                  <button
-                    onClick={handleRefresh}
-                    className="refresh-btn"
-                    style={{
-                      background: '#28a745',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      marginRight: '8px'
-                    }}
-                  >
-                    🔄 Refresh
-                  </button>
-                  <button
-                    onClick={clearAiCache}
-                    style={{
-                      background: '#dc3545',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🗑️ Clear Cache
-                  </button>
-                  <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
-                    Smart updates: only when blocks change
-                  </span>
-                </div>
-
-                {renderBlockSummary()}
-              </div>
-            )}
-
-            {/* AI Summary */}
-            {aiSummary && (
-              <div style={{
-                background: "#e3f2fd",
-                border: "1px solid #2196f3",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 12,
-                fontSize: 13,
-                lineHeight: 1.4
-              }}>
-                <h3 style={{ margin: "0 0 8px 0", color: "#1976d2", fontSize: 14 }}>
-                  🤖 AI 程式摘要 (AI Program Summary):
-                </h3>
-                <div style={{ whiteSpace: "pre-wrap" }}>{aiSummary}</div>
-              </div>
-            )}
+            <div style={{ padding: '0 8px' }}>
+              {renderBlockSummary()}
+            </div>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Footer Section */}
-      <div style={{
-        borderTop: '1px solid #e9ecef',
-        paddingTop: '12px',
+      {/* Footer */}
+      <footer className="modern-card" style={{
+        marginTop: '32px',
+        padding: '24px',
+        background: 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)',
+        borderRadius: 'var(--border-radius)',
+        border: '2px solid var(--border-color)',
         textAlign: 'center',
-        fontSize: '11px',
-        color: '#868e96',
-        marginTop: '20px'
+        boxShadow: 'var(--shadow-lg)'
       }}>
-        <div style={{ marginBottom: '6px' }}>
-          Beta version 0.2 - Enhanced with AI Assistant
+        {/* RoboYouth Logo */}
+        <div style={{
+          marginBottom: '16px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            boxShadow: 'var(--shadow-md)',
+            border: '2px solid var(--primary-light)'
+          }}>
+            <img 
+              src="../../icons/robo48.png"
+              alt="RoboYouth Logo" 
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+            />
+          </div>
+        </div>
+        
+        <div style={{ 
+          fontSize: '16px', 
+          fontWeight: '700', 
+          color: 'var(--text-primary)',
+          marginBottom: '12px',
+          letterSpacing: '-0.5px'
+        }}>
+          RoboYouth Taiwan
         </div>
         <div style={{ 
-          fontSize: '11px', 
-          color: '#007bff',
+          fontSize: '13px', 
+          color: 'var(--text-secondary)',
+          marginBottom: '8px',
           fontWeight: '500'
         }}>
-          Support: roboyouthtaiwan@gmail.com
+          {getText({
+            en: 'Created by Sophie Hsu',
+            'zh-TW': '由 Sophie Hsu 創建',
+            'zh-CN': '由 Sophie Hsu 创建',
+            es: 'Creado por Sophie Hsu',
+            hi: 'Sophie Hsu द्वारा बनाया गया',
+            ar: 'أنشأته Sophie Hsu',
+            pt: 'Criado por Sophie Hsu',
+            bn: 'Sophie Hsu দ্বারা তৈরি',
+            ru: 'Создано Sophie Hsu',
+            fr: 'Créé par Sophie Hsu',
+            id: 'Dibuat oleh Sophie Hsu'
+          })}
         </div>
-      </div>
+        <div style={{ 
+          fontSize: '12px', 
+          color: 'var(--text-muted)',
+          marginBottom: '12px',
+          fontWeight: '400'
+        }}>
+          {getText({
+            en: 'Beta version 0.1',
+            'zh-TW': '測試版本 0.1',
+            'zh-CN': '测试版本 0.1',
+            es: 'Versión Beta 0.1',
+            hi: 'बीटा संस्करण 0.1',
+            ar: 'الإصدار التجريبي 0.1',
+            pt: 'Versão Beta 0.1',
+            bn: 'বিটা সংস্করণ 0.1',
+            ru: 'Бета версия 0.1',
+            fr: 'Version Bêta 0.1',
+            id: 'Versi Beta 0.1'
+          })}
+        </div>
+        <div style={{ 
+          fontSize: '12px', 
+          color: 'var(--primary-color)',
+          fontWeight: '600',
+          padding: '8px 16px',
+          background: 'var(--bg-secondary)',
+          borderRadius: 'var(--border-radius-sm)',
+          display: 'inline-block',
+          border: '1px solid var(--border-color)'
+        }}>
+          {getText({
+            en: 'Support: roboyouthtaiwan@gmail.com',
+            'zh-TW': '支援：roboyouthtaiwan@gmail.com',
+            'zh-CN': '支持：roboyouthtaiwan@gmail.com',
+            es: 'Soporte: roboyouthtaiwan@gmail.com',
+            hi: 'सहायता: roboyouthtaiwan@gmail.com',
+            ar: 'الدعم: roboyouthtaiwan@gmail.com',
+            pt: 'Suporte: roboyouthtaiwan@gmail.com',
+            bn: 'সহায়তা: roboyouthtaiwan@gmail.com',
+            ru: 'Поддержка: roboyouthtaiwan@gmail.com',
+            fr: 'Support: roboyouthtaiwan@gmail.com',
+            id: 'Dukungan: roboyouthtaiwan@gmail.com'
+          })}
+        </div>
+      </footer>
 
       <style>{`
         .block-summary {
-          background: #f8f9fa;
-          border: 1px solid #e9ecef;
-          border-radius: 8;
-          padding: 16;
-          margin-bottom: 16;
+          background: var(--bg-primary);
+          border: 2px solid var(--border-color);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 16px;
+          box-shadow: var(--shadow-sm);
+          transition: var(--transition);
+          max-width: calc(100% - 16px);
+          margin-left: auto;
+          margin-right: auto;
+        }
+        
+        .block-summary:hover {
+          box-shadow: var(--shadow-md);
+          transform: translateY(-1px);
         }
         
         .block-summary h3 {
-          margin: 0 0 12px 0;
-          color: #495057;
-          font-size: 16;
-          font-weight: 600;
+          margin: 0 0 16px 0;
+          color: var(--text-primary);
+          font-size: 18px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         
         .block-summary h4 {
-          margin: 16px 0 8px 0;
-          color: #495057;
-          font-size: 14;
+          margin: 20px 0 12px 0;
+          color: var(--text-primary);
+          font-size: 16px;
           font-weight: 600;
+          border-bottom: 2px solid var(--border-color);
+          padding-bottom: 8px;
         }
         
-        .blocks-display {
-          max-height: 200px;
-          overflow-y: auto;
-          margin-bottom: 12px;
+        .block-summary p {
+          margin: 8px 0;
+          color: var(--text-secondary);
+          font-size: 14px;
+          line-height: 1.5;
         }
         
-        .block-item {
-          background: white;
-          border: 1px solid #dee2e6;
-          border-radius: 6;
-          padding: 8;
-          margin-bottom: 6;
-          font-size: 12;
+        .block-summary .block-item {
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: var(--border-radius-sm);
+          padding: 12px;
+          margin: 8px 0;
+          font-size: 13px;
+          color: var(--text-primary);
+          transition: var(--transition);
         }
         
-        .block-header {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 4;
-          font-size: 10;
-          color: #6c757d;
-        }
-        
-        .block-number {
-          font-weight: 600;
-          color: #007bff;
-        }
-        
-        .block-category {
-          background: #e9ecef;
-          padding: 2px 6px;
-          border-radius: 3;
-          font-weight: 500;
-        }
-        
-        .block-shape {
-          background: #f8f9fa;
-          padding: 2px 6px;
-          border-radius: 3;
-          font-style: italic;
-        }
-        
-        .block-content {
-          font-size: 13;
-          color: #212529;
-          margin-bottom: 2;
-        }
-        
-        .block-id {
-          font-size: 10;
-          color: #6c757d;
-          font-family: monospace;
-        }
-        
-        .category-summary {
-          background: white;
-          border: 1px solid #dee2e6;
-          border-radius: 6;
-          padding: 12;
-        }
-        
-        .category-item {
-          display: flex;
-          justify-content: space-between;
-          padding: 4px 0;
-          font-size: 12;
-        }
-        
-        .category-name {
-          font-weight: 500;
-          color: #495057;
-        }
-        
-        .category-count {
-          background: #007bff;
+        .block-summary .block-item:hover {
+          background: var(--primary-light);
           color: white;
-          padding: 2px 6px;
-          border-radius: 10;
-          font-size: 10;
-          font-weight: 600;
+          transform: translateX(4px);
         }
         
-        .refresh-btn {
-          background: #28a745;
+        .block-summary .refresh-clear {
+          display: flex;
+          gap: 12px;
+          margin-top: 16px;
+        }
+        
+        .block-summary .refresh-clear button {
+          background: var(--primary-color);
           color: white;
           border: none;
-          border-radius: 6;
+          border-radius: var(--border-radius-sm);
           padding: 8px 16px;
-          font-size: 12;
+          font-size: 12px;
+          font-weight: 600;
           cursor: pointer;
-          font-weight: 500;
+          transition: var(--transition);
+          box-shadow: var(--shadow-sm);
         }
         
-        .refresh-btn:hover {
-          background: #218838;
+        .block-summary .refresh-clear button:hover {
+          background: var(--primary-dark);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .block-summary .refresh-clear button:active {
+          transform: translateY(0);
         }
       `}</style>
     </div>
