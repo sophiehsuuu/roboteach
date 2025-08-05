@@ -187,11 +187,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Built with ❤️ by [RoboYouth Taiwan](https://roboyouthtaiwan.com)**
+**Built with ❤️ by [Sophie Hsu @ RoboYouth Taiwan]**
 
 *Empowering the next generation of robotics programmers!*
-
-[![GitHub Stars](https://img.shields.io/github/stars/roboyouthtaiwan/robocoach?style=social)](https://github.com/roboyouthtaiwan/robocoach)
-[![Follow on Twitter](https://img.shields.io/twitter/follow/roboyouthtw?style=social)](https://twitter.com/roboyouthtw)
 
 </div>
