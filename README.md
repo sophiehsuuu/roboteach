@@ -46,26 +46,6 @@ Transform your SPIKE Prime programming experience with intelligent AI assistance
 
 ---
 
-## 🖼️ Screenshots
-
-<div align="center">
-
-### Main Interface
-![Main Interface](screenshots/main-interface.png)
-
-### AI Chat in Action  
-![AI Chat](screenshots/ai-chat.png)
-
-### Code Generation
-![Code Generation](screenshots/code-generation.png)
-
-### Smart Troubleshooting
-![Troubleshooting](screenshots/troubleshooting.png)
-
-</div>
-
----
-
 ## 🚀 Installation
 
 ### From Chrome Web Store (Recommended)
