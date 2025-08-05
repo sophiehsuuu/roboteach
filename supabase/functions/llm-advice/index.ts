@@ -12,6 +12,27 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Function to clean markdown formatting for better readability
+function cleanMarkdownFormatting(text: string): string {
+  return text
+    // Remove bold markdown
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    // Remove italic markdown
+    .replace(/\*(.*?)\*/g, '$1')
+    // Remove code markdown
+    .replace(/`(.*?)`/g, '$1')
+    // Remove header markdown
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove list markdown but keep the content
+    .replace(/^[-*+]\s+/gm, '• ')
+    .replace(/^\d+\.\s+/gm, (match) => match.replace('.', '.'))
+    // Add line breaks for better readability
+    .replace(/([.!?])\s+/g, '$1\n\n')
+    // Clean up multiple line breaks
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Enhanced block field mapping for better analysis
 const BLOCK_TYPE_CATEGORIES = {
   motor: ['spike_move_motor', 'spike_move_motor_for', 'spike_move_motor_to_position', 'spike_start_motor', 'spike_stop_motor'],
@@ -466,7 +487,7 @@ function detectBehavioralIssues(blocks: any[]): string {
   return foundIssues ? issues : "";
 }
 
-// Helper: Generate structured program flow for better AI understanding
+// Generate structured program flow for better AI understanding
 function generateProgramFlow(blocks: any[]): string {
   if (!blocks || !Array.isArray(blocks) || blocks.length === 0) {
     return "⚠️ 偵測不到積木設定（No blocks detected）";
@@ -568,7 +589,7 @@ function generateProgramFlow(blocks: any[]): string {
   return flow;
 }
 
-// Helper: Render human-friendly summary of blocks for the LLM prompt
+// Render human-friendly summary of blocks for the LLM prompt
 function summarizeBlocks(blocks: any[]): string {
   if (!blocks || !Array.isArray(blocks) || blocks.length === 0) {
     return "⚠️ 偵測不到積木設定（No blocks detected）";
@@ -1015,7 +1036,8 @@ You are a professional LEGO SPIKE block programming teaching assistant. Please s
   if (pickedSymptom === 'natural-language-generation') {
     return prompts['natural-language-generation'];
   } else if (pickedSymptom === 'chatbot-conversation') {
-    return prompts['chatbot-conversation'];
+    // For chatbot conversation, use the summary as the complete prompt from frontend
+    return summary;
   } else if (pickedSymptom === 'program-summary') {
     // For program summary, include the actual block data in the prompt
     const basePrompt = prompts['program-summary'];
@@ -1320,6 +1342,11 @@ RESPONSE RULES:
     let advice = lang === 'en' ? "Sorry, I cannot get AI advice." : "抱歉，我無法取得AI建議。";
     try {
       advice = openaiData.choices?.[0]?.message?.content?.trim() || advice;
+      
+      // Clean markdown formatting for better readability
+      if (pickedSymptom === 'chatbot-conversation') {
+        advice = cleanMarkdownFormatting(advice);
+      }
     } catch { /* fallback already set */ }
 
     return new Response(JSON.stringify({ advice }), {

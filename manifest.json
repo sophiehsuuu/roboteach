@@ -1,22 +1,27 @@
 {
-    "manifest_version": 3,
-    "name": "RoboLearn SPIKE AI Error Advisor",
-    "version": "0.2",
-    "permissions": ["scripting", "storage", "tabs", "windows"],
-    "host_permissions": ["https://spike.legoeducation.com/*"],
-    "content_scripts": [
-      {
-        "matches": ["https://spike.legoeducation.com/*"],
-        "js": ["src/content/content.js"]
-      }
-    ],
-    "action": {
-      "default_popup": "src/popup/index.html"
-    },
-    "icons": {
-      "16": "icons/robo16.png",
-      "48": "icons/robo48.png",
-      "128": "icons/robo128.png"
+  "manifest_version": 3,
+  "name": "RoboCoach: SPIKE Prime AI Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered programming assistant for LEGO SPIKE Prime. Get real-time debugging help and code generation.",
+  "permissions": ["scripting", "storage", "tabs"],
+  "host_permissions": ["https://spike.legoeducation.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://spike.legoeducation.com/*"],
+      "js": ["src/content/content.js"]
     }
-  }
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "RoboCoach: SPIKE Prime AI Assistant"
+  },
+  "icons": {
+    "16": "icons/robo16.png",
+    "48": "icons/robo48.png",
+    "128": "icons/robo128.png"
+  },
+  "author": "RoboYouth Taiwan",
+  "homepage_url": "https://roboyouthtaiwan.com",
+  "minimum_chrome_version": "88"
+}
   

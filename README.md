@@ -1,69 +1,217 @@
-# React + TypeScript + Vite
+# 🤖 RoboCoach: SPIKE Prime AI Assistant
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+<div align="center">
 
-Currently, two official plugins are available:
+![RoboCoach Logo](public/icons/robo128.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+**AI-powered programming assistant for LEGO SPIKE Prime**
 
-## Expanding the ESLint configuration
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-brightgreen)](https://chrome.google.com/webstore)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/roboyouthtaiwan/robocoach)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Transform your SPIKE Prime programming experience with intelligent AI assistance that understands your code and provides real-time guidance.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+[🚀 **Install Extension**](#installation) • [📖 **Documentation**](#features) • [🛠️ **Development**](#development) • [🤝 **Support**](#support)
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+</div>
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## ✨ Features
+
+### 🎯 **Smart Troubleshooting**
+- **Real-time block analysis** - Automatically detects and analyzes your SPIKE Prime program
+- **Contextual debugging** - Provides specific advice based on your actual code structure  
+- **Common issue detection** - Identifies motor problems, sensor issues, control flow errors
+- **Bilingual support** - Full English and Traditional Chinese interface
+
+### 🧩 **AI Code Generation**
+- **Natural language to blocks** - Convert plain English/Chinese to SPIKE Prime block sequences
+- **Pattern optimization** - Specialized handling for "move until condition then stop" patterns
+- **Best practices** - Automatically generates proper loop structures and control flow
+- **Educational focus** - Explains the generated code for learning
+
+### 💬 **Interactive AI Chat**
+- **Context-aware conversations** - AI understands your current program state
+- **Programming concept explanations** - Learn SPIKE Prime concepts through dialogue
+- **Debug assistance** - Get help with complex programming challenges
+- **Real-time block context** - AI references your actual blocks in responses
+
+### 🔍 **Intelligent Analysis**
+- **Block categorization** - Automatically organizes motors, sensors, control structures
+- **Performance suggestions** - Optimization recommendations for speed and efficiency
+- **Error prevention** - Warns about common programming mistakes before they happen
+- **Program flow visualization** - Clear summary of what your robot will do
+
+---
+
+## 🖼️ Screenshots
+
+<div align="center">
+
+### Main Interface
+![Main Interface](screenshots/main-interface.png)
+
+### AI Chat in Action  
+![AI Chat](screenshots/ai-chat.png)
+
+### Code Generation
+![Code Generation](screenshots/code-generation.png)
+
+### Smart Troubleshooting
+![Troubleshooting](screenshots/troubleshooting.png)
+
+</div>
+
+---
+
+## 🚀 Installation
+
+### From Chrome Web Store (Recommended)
+1. Visit the [Chrome Web Store page](https://chrome.google.com/webstore)
+2. Click "Add to Chrome"
+3. Navigate to [spike.legoeducation.com](https://spike.legoeducation.com)
+4. Click the RoboCoach extension icon
+
+### Manual Installation (Development)
+1. Clone this repository
+2. Build the extension
+3. Load in Chrome Developer Mode
+
+---
+
+## 🎓 How to Use
+
+### 1. **Getting Started**
+```
+1. Install the extension
+2. Go to spike.legoeducation.com
+3. Create or open a SPIKE Prime project
+4. Click the RoboCoach icon in your browser toolbar
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. **Smart Troubleshooting**
+- Select common issues from the grid
+- Get instant analysis of your current blocks
+- Receive contextual advice based on your program
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 3. **AI Chat**
+- Ask questions about SPIKE Prime programming
+- Get explanations tailored to your current code
+- Debug complex issues with intelligent assistance
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 4. **Code Generation**
+- Describe what you want your robot to do in plain language
+- Get complete block sequences generated automatically
+- Learn best practices through explained examples
+
+---
+
+## 🛠️ Development
+
+### Prerequisites
+- Node.js 16+
+- npm or yarn
+- Chrome browser for testing
+
+### Setup
+```bash
+# Clone the repository
+git clone https://github.com/roboyouthtaiwan/robocoach.git
+cd robocoach
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
 ```
+
+### Project Structure
+```
+roboteach/
+├── src/
+│   ├── popup/          # Main extension UI (React + TypeScript)
+│   ├── content/        # Content script for SPIKE website
+│   └── assets/         # Static assets
+├── supabase/
+│   └── functions/      # AI backend functions
+├── public/
+│   └── icons/          # Extension icons
+└── dist/               # Built extension files
+```
+
+### Technologies Used
+- **Frontend**: React, TypeScript, Vite
+- **Backend**: Supabase Edge Functions, Deno
+- **AI**: OpenAI GPT-4o-mini
+- **Build**: Vite with web extension plugin
+- **Styling**: Modern CSS with CSS Variables
+
+---
+
+## 🎯 For Educators
+
+RoboCoach is designed with education in mind:
+
+- **Scaffolded Learning** - Provides hints without giving away solutions
+- **Conceptual Explanations** - Helps students understand programming concepts
+- **Error Analysis** - Teaches debugging skills through guided problem-solving
+- **Bilingual Support** - Accessible to diverse student populations
+- **Real-time Feedback** - Immediate assistance during programming activities
+
+---
+
+## 🔒 Privacy & Security
+
+- **No personal data collection** - Only analyzes block code for assistance
+- **Secure processing** - All AI calls use encrypted HTTPS
+- **Limited scope** - Only works on spike.legoeducation.com
+- **Open source** - Code is publicly auditable
+
+---
+
+## 🤝 Support
+
+### Getting Help
+- **Email**: roboyouthtaiwan@gmail.com
+- **Issues**: [GitHub Issues](https://github.com/roboyouthtaiwan/robocoach/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/roboyouthtaiwan/robocoach/discussions)
+
+### Contributing
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Reporting Bugs
+Please use our [Issue Template](.github/ISSUE_TEMPLATE/bug_report.md) when reporting bugs.
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🏆 Acknowledgments
+
+- **LEGO Education** - For creating the amazing SPIKE Prime platform
+- **OpenAI** - For providing the AI capabilities that power our assistant
+- **Supabase** - For the reliable backend infrastructure
+- **React & Vite Communities** - For the excellent development tools
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [RoboYouth Taiwan](https://roboyouthtaiwan.com)**
+
+*Empowering the next generation of robotics programmers!*
+
+[![GitHub Stars](https://img.shields.io/github/stars/roboyouthtaiwan/robocoach?style=social)](https://github.com/roboyouthtaiwan/robocoach)
+[![Follow on Twitter](https://img.shields.io/twitter/follow/roboyouthtw?style=social)](https://twitter.com/roboyouthtw)
+
+</div>

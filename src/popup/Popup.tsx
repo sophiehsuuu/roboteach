@@ -9,59 +9,109 @@ type ErrorTypeKey = "" | "motor" | "direction" | "not-starting" | "stop" | "sens
 const errorAdviceMap: Record<Exclude<ErrorTypeKey, "">, {
   zh: string;
   en: string;
-  generic: { zhTips: string; enTips: string; };
+  whatWentWrong: { zh: string; en: string; };
+  howToFix: { zh: string; en: string; };
+  whatToExpect: { zh: string; en: string; };
 }> = {
   "motor": {
     zh: "馬達未啟動",
     en: "Motor Not Moving",
-    generic: {
-      zhTips: "請檢查馬達積木是否連接且設定啟動動作。\n確保端口匹配與連線正常，或換電池。",
-      enTips: "Check if motor blocks are connected & set to start. Ensure matching ports and connections, or try fresh batteries."
+    whatWentWrong: {
+      zh: "❗ 機器人馬達沒有動作。可能原因包含缺少積木、連接不良或速度太低。",
+      en: "❗ The robot's motors aren't moving. This often happens when a block is missing, motors aren't connected, or speed is set too low."
+    },
+    howToFix: {
+      zh: "檢查接線： 馬達線是否確實插在A、B端口？\n積木檢查： 是否有「設置馬達A速度75%」與「啟動馬達」或「前進」積木？\n速度設定： 請將速度提高至70%以上。\n端口檢查： 積木設定端口與馬達連線一致嗎？\n實地測試： 按下「執行」。沒動？嘗試換一個端口或馬達。",
+      en: "Check connections: Make sure motor cables are firmly plugged into Port A and Port B on your hub.\nBlock check: Confirm your code includes blocks that set the motor speed (like \"set motor A speed to 75%\") and \"start motor\" or \"move forward.\"\nSpeed: Set the speed to at least 70% for best results—low speeds may not move the robot.\nPort match: Is your code using the same port as the cable?\nRun a Test: Press \"Run.\" If nothing moves, try swapping the cable to another port and update your code."
+    },
+    whatToExpect: {
+      zh: "成功時馬達應該會轉動。\n還是不行？檢查積木順序或請AI助理協助細查。",
+      en: "The robot should move forward.\nIf not, review your blocks for missing actions or try another motor.\nStill not working? Tap \"Ask AI\" below for step-by-step diagnostics."
     }
   },
   "direction": {
     zh: "機器人方向錯誤",
     en: "Robot Moving Wrong Direction",
-    generic: {
-      zhTips: "檢查左右馬達設定及順/逆時針。確認有無設定錯誤的方向積木。",
-      enTips: "Check left/right motors and clockwise/counterclockwise. Confirm there are no wrong direction blocks."
+    whatWentWrong: {
+      zh: "↩️ 機器人原地轉圈或倒退。",
+      en: "↩️ The robot spins in place or moves backward."
+    },
+    howToFix: {
+      zh: "檢查馬達方向： 兩個馬達都應設為「前進」。\n積木順序檢查： 是否混用「前進」與「後退」？\n修正範例： A、B都設「前進」。\n再測試一次。",
+      en: "Check motor direction settings: Both motors should be set to the same direction (e.g., both \"forward\").\nReview block order: Are you mixing \"forward\" and \"backward\"/\"reverse\" blocks?\nFix rotation direction: Example:\n[set motor A forward]\n[set motor B forward]\nTest again: Does the robot now move straight?"
+    },
+    whatToExpect: {
+      zh: "如果還是錯誤，請檢查端口設定或請AI助理協助。",
+      en: "The robot should drive straight.\nIf it still spins, check for mismatched ports or blocks.\nNeed more help? Use \"Ask AI\" below."
     }
   },
   "not-starting": {
     zh: "程式未開始",
     en: "Code Not Starting",
-    generic: {
-      zhTips: "請確認有『開始』積木，並點選執行。",
-      enTips: "Make sure you have a 'start' block and click run."
+    whatWentWrong: {
+      zh: "⏯️ 程式按下「執行」沒反應。",
+      en: "⏯️ The program doesn't run when you click \"Run.\""
+    },
+    howToFix: {
+      zh: "檢查開始積木： 最上方應有「當程式開始」積木。\n積木連接完整： 所有指令應串在一起。\n再次執行測試。",
+      en: "Check for a start block: Make sure you have a \"when program starts\" block at the very top of your code.\nNo gaps: Blocks must be connected smoothly from the start block.\nTest: Press \"Run\" again after corrections."
+    },
+    whatToExpect: {
+      zh: "程式應正常開始。仍無法啟動請求助AI助理。",
+      en: "The program should start running automatically.\nIf nothing happens, double-check the order of your blocks.\nStill stuck? Ask the AI for more help."
     }
   },
   "stop": {
     zh: "無法停止",
     en: "Can't Stop",
-    generic: {
-      zhTips: "檢查有無『停止』積木。確認有機會跳出循環。",
-      enTips: "Check for stop blocks. Make sure all loops can be exited."
+    whatWentWrong: {
+      zh: "🔄 機器人不會停止，可能陷入無限循環。",
+      en: "🔄 The robot never stops—maybe stuck in a forever loop."
+    },
+    howToFix: {
+      zh: "檢查循環結構： 若用「永遠」循環，需配合停止條件（如感測器觸發時「停止所有馬達」）。\n加入停止積木： 例如 [如果按鈕被按下 → 停止所有馬達]\n用「直到...」： 建議用「重複直到」達到停機條件。",
+      en: "Check loop structure: If you use a \"forever\" loop, ensure there's a way to stop (like an \"if sensor pressed, stop all motors\" inside your loop).\nAdd a stop block: Example:\n[if touch sensor pressed → stop all motors]\nUse \"repeat until\" for finite actions: For stop-on-sensor, consider \"repeat until [sensor]\" instead of \"forever.\""
+    },
+    whatToExpect: {
+      zh: "程式應在條件達成時停止。如仍不會停，請求助AI。",
+      en: "The robot should halt when your stop condition is met.\nIf it keeps running, recheck your loop/block logic.\nStill looping? Use \"Ask AI\" for custom help."
     }
   },
   "sensor": {
     zh: "感應器無反應",
     en: "Sensor Not Responding",
-    generic: {
-      zhTips: "檢查感應器積木是否設定正確並已插入。",
-      enTips: "Check sensor blocks are set and sensor is plugged in."
+    whatWentWrong: {
+      zh: "🛰️ 感應器沒反應。機器人沒有偵測到線、物體或按鈕。",
+      en: "🛰️ Sensors don't seem to work. Your robot isn't reacting to lines, objects, or buttons."
+    },
+    howToFix: {
+      zh: "檢查線與端口： 感應器需正確插入對應端口。\n積木檢查： 程式要包含感應器積木（如「如果顏色感應器感測到藍色」）。\n感應器類型正確： 積木與硬體要對應（顏色、距離、按鈕等）。\n用簡單範例測試。",
+      en: "Check cable & port: Is your sensor properly connected to the port used in your code?\nBlock presence: Make sure your program includes relevant sensor blocks (e.g., \"when color sensor detects blue...\").\nCorrect sensor type: Are you using the correct block for your hardware (color, distance, touch)?\nTest with simple program: Try a one-block test to check sensor status."
+    },
+    whatToExpect: {
+      zh: "正常時會有反應。如果還是無效，換端口或感應器試試。\n仍無法解決？請詢問AI助理。",
+      en: "Robot should react to sensor triggers.\nNot working? Sensors or wiring may be faulty—try another port or sensor.\nStill no luck? Describe your issue for AI help below."
     }
   },
   "other": {
     zh: "其他／未列出問題",
     en: "Other / Not Listed",
-    generic: {
-      zhTips: "請簡要描述問題後，使用下方 AI 協助功能。",
-      enTips: "Describe your issue, then use 'Ask AI' below."
+    whatWentWrong: {
+      zh: "🤔 其他無法分類的問題。",
+      en: "🤔 You have a different or complex problem."
+    },
+    howToFix: {
+      zh: "請在上方輸入框說明問題。\n按「詢問AI」讓助理針對你的程式給專屬解方。",
+      en: "Please describe your issue clearly in the box above.\nClick \"Ask AI\" so our assistant can analyze your code and help you with a personalized step-by-step solution."
+    },
+    whatToExpect: {
+      zh: "AI 會分析並提供專屬建議！",
+      en: "You'll get an AI-powered diagnosis and fix."
     }
   }
 };
 
-// Helper function to get bilingual labels
+// Function to get bilingual labels
 const getBilingualLabel = (key: string, selectedLang: string) => {
   const labels: any = {
     "": {
@@ -170,97 +220,7 @@ const dropdownOptions: { key: ErrorTypeKey; label: string }[] = [
   { key: "other", label: "其他／未列出問題 / Other" }
 ];
 
-// --- Smart advice helpers ---
-function getCustomMotorAdvice(blocks: any[], selectedLanguage: string) {
-  if (!blocks?.length) return "";
-  const motorBlocks = blocks.filter(b => 
-    b.category === 'flippermotor' || 
-    (b.type && b.type.includes("motor")) ||
-    (b.text && b.text.includes("motor"))
-  );
-  if (!motorBlocks.length) {
-    return selectedLanguage === 'zh-TW' 
-      ? "❗ 目前積木中沒有任何馬達積木。\nNo motor blocks detected.\n"
-      : "❗ No motor blocks detected in current blocks.\n";
-  }
-  let out = "";
-  motorBlocks.forEach(b => {
-    const motorPort = b.motor || b.MOTOR || b.PORT || "A";
-    const speed = b.speed || b.SPEED;
-    if (selectedLanguage === 'zh-TW') {
-      out += `• 馬達${motorPort} 速度: ${speed !== undefined ? speed + "%" : "未設定"}\n`;
-      if (speed !== undefined && Number(speed) < 70)
-        out += "↳ 速度偏低，建議嘗試設為80%以上。\n(Motor speed is low, recommend setting to 80%+)\n";
-      if (!motorPort || motorPort === "")
-        out += "↳ 未指定端口，請選擇A/B。\n(No port set, please choose A/B)\n";
-    } else {
-      out += `• Motor ${motorPort} speed: ${speed !== undefined ? speed + "%" : "not set"}\n`;
-      if (speed !== undefined && Number(speed) < 70)
-        out += "↳ Speed is low, recommend setting to 80%+\n";
-      if (!motorPort || motorPort === "")
-        out += "↳ No port specified, please choose A/B\n";
-    }
-  });
-  return out;
-}
-function getCustomDirectionAdvice(blocks: any[]) {
-  const motors = blocks.filter(b => 
-    b.category === 'flippermotor' || 
-    (b.type && b.type.includes("motor")) ||
-    (b.text && b.text.includes("motor"))
-  );
-  let advice = "";
-  if (motors.length >= 2) {
-    const first = motors[0], second = motors[1];
-    if (first?.DIRECTION && second?.DIRECTION && first.DIRECTION !== second.DIRECTION)
-      advice += "⚠️ 兩個馬達方向設置不同，可能造成原地旋轉。\n(Motors set to opposing directions, may rotate in place.)\n";
-  }
-  return advice;
-}
-function getCustomNotStartingAdvice(blocks: any[], selectedLanguage: string) {
-  if (!blocks || !blocks.length) return "";
-  const hasStart = blocks.some(b => 
-    (b.type === 'event_start') || 
-    (b.text && b.text.includes('when program starts'))
-  );
-  if (!hasStart) {
-    return selectedLanguage === 'zh-TW' 
-      ? "❗ 沒有偵測到『開始』積木。\nNo start block detected.\n"
-      : "❗ No start block detected.\n";
-  }
-  return "";
-}
-function getCustomStopAdvice(blocks: any[]) {
-  const forever = blocks.filter(b => 
-    b.type === 'control_forever' || 
-    (b.text && b.text.includes("forever"))
-  );
-  const stops = blocks.filter(b => 
-    (b.text && b.text.includes("stop")) ||
-    (b.type && b.type.includes("stop"))
-  );
-  if (forever.length && !stops.length)
-    return "↳ 積木有『永遠』循環但沒有適合的『停止』積木。\n(Has forever loop but no stop block.)\n";
-  return "";
-}
-function getCustomSensorAdvice(blocks: any[]) {
-  const sensors = blocks.filter(b => 
-    b.category === 'flippersensors' || 
-    (b.type && b.type.includes("sensor")) ||
-    (b.text && (b.text.includes("sensor") || b.text.includes("color") || b.text.includes("distance") || b.text.includes("touch")))
-  );
-  if (!sensors.length)
-    return "❗ 沒有偵測到任何感應器積木。\nNo sensor blocks found.\n";
-  let out = "";
-  sensors.forEach(b => {
-    const sensorPort = b.sensor || b.SENSOR || "";
-    out += `• 感應器${sensorPort} 類型: ${b.type || b.category}`;
-    if (b.COLOR) out += ` 顏色值: ${b.COLOR}`;
-    if (b.VALUE) out += ` 讀取值: ${b.VALUE}`;
-    out += "\n";
-  });
-  return out;
-}
+
 
 export default function Popup() {
   const [output, setOutput] = useState('');
@@ -321,7 +281,28 @@ Example pattern:
 
 Generate the block sequence in English:`,
 
-        chatConversation: (userMessage: string, history: any[]) => `Student question: ${userMessage}\n\nConversation history:\n${history.map(msg => `${msg.role === 'user' ? 'Student' : 'AI'}: ${msg.content}`).join('\n')}`
+        chatConversation: (userMessage: string, history: any[], currentBlocks: any[], aiSummary: string) => `You are a helpful AI assistant for LEGO SPIKE Prime programming. Answer the student's question directly and specifically based on their current program.
+
+Student's current question: ${userMessage}
+
+CURRENT PROGRAM CONTEXT:
+${aiSummary ? `Program Summary: ${aiSummary}` : 'No program summary available'}
+
+Current Blocks Detected: ${currentBlocks?.length || 0} blocks
+${currentBlocks?.length > 0 ? currentBlocks.map(b => `- ${b.category}: ${b.text}`).slice(0, 10).join('\n') : 'No blocks detected'}
+
+Previous conversation:
+${history.map(msg => `${msg.role === 'user' ? 'Student' : 'AI'}: ${msg.content}`).join('\n')}
+
+Instructions:
+- Answer based on the student's ACTUAL program shown above
+- If they ask about speed, look at their current motor blocks and suggest specific improvements
+- If they ask about movement, reference their actual movement blocks
+- If they ask about sensors, check their sensor blocks
+- Use the program context to give relevant, specific advice
+- Use clear, simple language with proper line breaks
+- Do NOT use markdown formatting like ** or *
+- Focus on their actual question and their actual code`
       },
       'zh-TW': {
         programAnalysis: "請分析這個程式的邏輯並用簡短的中文描述機器人會做什麼。特別注意條件控制（if-then）和感應器觸發的邏輯結構。",
@@ -345,7 +326,28 @@ Generate the block sequence in English:`,
 
 用繁體中文生成積木序列：`,
 
-        chatConversation: (userMessage: string, history: any[]) => `學生問題: ${userMessage}\n\n對話歷史:\n${history.map(msg => `${msg.role === 'user' ? '學生' : 'AI'}: ${msg.content}`).join('\n')}`
+        chatConversation: (userMessage: string, history: any[], currentBlocks: any[], aiSummary: string) => `你是一個幫助LEGO SPIKE Prime編程的AI助手。根據學生當前的程式直接且具體地回答問題。
+
+學生當前的問題: ${userMessage}
+
+當前程式內容:
+${aiSummary ? `程式摘要: ${aiSummary}` : '沒有程式摘要'}
+
+檢測到的積木: ${currentBlocks?.length || 0} 個積木
+${currentBlocks?.length > 0 ? currentBlocks.map(b => `- ${b.category}: ${b.text}`).slice(0, 10).join('\n') : '沒有檢測到積木'}
+
+之前的對話:
+${history.map(msg => `${msg.role === 'user' ? '學生' : 'AI'}: ${msg.content}`).join('\n')}
+
+指示:
+- 根據學生上方顯示的實際程式來回答
+- 如果詢問速度，檢查他們當前的馬達積木並建議具體改進
+- 如果詢問移動，參考他們實際的移動積木
+- 如果詢問感應器，檢查他們的感應器積木
+- 使用程式內容給出相關、具體的建議
+- 使用清晰、簡單的語言和適當的換行
+- 不要使用markdown格式如 ** 或 *
+- 專注於他們的實際問題和實際代碼`
       }
     };
     
@@ -418,7 +420,7 @@ Generate the block sequence in English:`,
     };
   }, []);
 
-  // Helper function to create a simple hash of block content for comparison
+  // Function to create a simple hash of block content for comparison
   function createBlocksHash(blocks: any[]): string {
     if (!blocks || blocks.length === 0) return 'empty';
     
@@ -769,7 +771,7 @@ Generate the block sequence in English:`,
     
     try {
       const currentLanguage = getApiLanguage();
-      const currentPrompt = getAIPrompts().chatConversation(userMessage, newHistory.slice(-4));
+      const currentPrompt = getAIPrompts().chatConversation(userMessage, newHistory.slice(-4), blockData, aiSummary);
       
       console.log('[Chat] 🌍 Current language:', selectedLanguage);
       console.log('[Chat] 🔤 API language:', currentLanguage);
@@ -905,27 +907,31 @@ Generate the block sequence in English:`,
     const val = e.target.value as ErrorTypeKey;
     setSelectedError(val);
 
-    let custom = "";
-    if (val === "motor") custom = getCustomMotorAdvice(blockData, selectedLanguage);
-    if (val === "direction") custom = getCustomDirectionAdvice(blockData);
-    if (val === "not-starting") custom = getCustomNotStartingAdvice(blockData, selectedLanguage);
-    if (val === "stop") custom = getCustomStopAdvice(blockData);
-    if (val === "sensor") custom = getCustomSensorAdvice(blockData);
-
-    let zh = "", en = "", zhTips = "", enTips = "";
     if (val && val in errorAdviceMap) {
       const adv = errorAdviceMap[val as keyof typeof errorAdviceMap];
-      zh = adv.zh; en = adv.en; zhTips = adv.generic.zhTips; enTips = adv.generic.enTips;
+      const lang = selectedLanguage === 'zh-TW' ? 'zh' : 'en';
+      
+      setOutput(
+        `🌟 ${adv[lang]}\n\n` +
+        `❓ ${getText({
+          en: 'What Went Wrong:',
+          'zh-TW': '發生了什麼？'
+        })}\n` +
+        `${adv.whatWentWrong[lang]}\n\n` +
+        `🔧 ${getText({
+          en: 'How to Fix:',
+          'zh-TW': '解決方法：'
+        })}\n` +
+        `${adv.howToFix[lang]}\n\n` +
+        `✅ ${getText({
+          en: 'What to Expect / Next Steps:',
+          'zh-TW': '然後呢？'
+        })}\n` +
+        `${adv.whatToExpect[lang]}`
+      );
+    } else {
+      setOutput('');
     }
-
-    setOutput(
-      `🌟 ${zh}\n` +
-      (custom ? `【偵測自程式】\n${custom}` : "") +
-      `${zhTips}\n\n—\n` +
-      `${en}\n` +
-      (custom ? `[From code blocks]\n${custom.replace(/\n/g, " ")}` : "") +
-      `${enTips}`
-    );
   }
 
 
@@ -1607,14 +1613,14 @@ Generate the block sequence in English:`,
         <div style={{ flex: "1", minWidth: "0" }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', lineHeight: '1.2' }}>
             {getText({
-              en: '🤖 SPIKE AI Error Advisor',
-              'zh-TW': '🤖 SPIKE AI 錯誤顧問'
+              en: '🤖 RoboCoach: SPIKE Prime AI Assistant',
+              'zh-TW': '🤖 RoboCoach: SPIKE Prime AI 助手'
             })}
           </h2>
           <p style={{ margin: "8px 0 0 0", fontSize: 14, opacity: 0.95, fontWeight: 400, lineHeight: '1.3' }}>
             {getText({
-              en: 'LEGO SPIKE Prime Intelligent Debugging Assistant',
-              'zh-TW': 'LEGO SPIKE Prime 智能除錯助手'
+              en: 'LEGO SPIKE Prime AI Programming Assistant',
+                              'zh-TW': 'LEGO SPIKE Prime AI 編程助手'
             })}
           </p>
         </div>
@@ -1767,73 +1773,117 @@ Generate the block sequence in English:`,
         {/* AI Chat Interface */}
         {activeAITab === 'chat' && (
           <div style={{ 
-            background: '#fffacd', 
-            border: '1px solid #ffd700', 
-            borderRadius: '8px', 
-            padding: '12px'
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', 
+            border: '2px solid #f59e0b', 
+            borderRadius: '16px', 
+            padding: '20px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
           }}>
             <div style={{
               background: 'white',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              height: '200px',
+              border: '2px solid #e5e7eb',
+              borderRadius: '12px',
+              height: '220px',
               overflowY: 'auto',
-              padding: '8px',
-              marginBottom: '8px'
+              padding: '16px',
+              marginBottom: '16px',
+              boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)'
             }}>
               {chatHistory.length === 0 ? (
-                <div style={{ color: '#666', fontSize: '12px', textAlign: 'center', padding: '20px' }}>
-                  {getText({
-                    en: 'Ask me any questions about SPIKE Prime programming!',
-                    'zh-TW': '問我任何關於SPIKE Prime編程的問題！'
-                  })}
+                <div style={{ 
+                  color: '#4a5568', 
+                  fontSize: '16px', 
+                  textAlign: 'center', 
+                  padding: '40px 20px',
+                  fontWeight: '500',
+                  lineHeight: '1.6',
+                  background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
+                  borderRadius: '12px',
+                  border: '2px dashed #cbd5e0',
+                  margin: '10px 0'
+                }}>
+                  <div style={{ fontSize: '24px', marginBottom: '12px' }}>🤖</div>
+                  <div style={{ marginBottom: '8px' }}>
+                    {getText({
+                      en: 'Ask me any questions about SPIKE Prime programming!',
+                      'zh-TW': '問我任何關於SPIKE Prime編程的問題！'
+                    })}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#718096', fontWeight: '400' }}>
+                    {getText({
+                      en: 'I can help with debugging, code generation, and programming concepts',
+                      'zh-TW': '我可以幫助除錯、代碼生成和編程概念'
+                    })}
+                  </div>
                 </div>
               ) : (
                 chatHistory.map((msg, index) => (
                   <div key={index} style={{
-                    marginBottom: '8px',
-                    padding: '6px',
-                    borderRadius: '4px',
-                    background: msg.role === 'user' ? '#e3f2fd' : '#f5f5f5',
-                    fontSize: '12px'
+                    marginBottom: '12px',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: msg.role === 'user' 
+                      ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)' 
+                      : 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                    fontSize: '14px',
+                    border: msg.role === 'user' 
+                      ? '1px solid #93c5fd' 
+                      : '1px solid #d1d5db',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                    position: 'relative'
                   }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                    <div style={{ 
+                      fontWeight: '600', 
+                      marginBottom: '6px',
+                      color: msg.role === 'user' ? '#1e40af' : '#374151',
+                      fontSize: '12px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
                       {msg.role === 'user' ? getText({
-                        en: 'You:',
-                        'zh-TW': '你：'
+                        en: 'You',
+                        'zh-TW': '你'
                       }) : getText({
-                        en: 'AI:',
-                        'zh-TW': 'AI：'
+                        en: 'AI Assistant',
+                        'zh-TW': 'AI 助手'
                       })}
                     </div>
-                    <div>{msg.content}</div>
+                    <div style={{ 
+                      lineHeight: '1.5',
+                      color: msg.role === 'user' ? '#1e3a8a' : '#1f2937'
+                    }}>
+                      {msg.content}
+                    </div>
                   </div>
                 ))
               )}
               {isChatLoading && (
                 <div className="loading-pulse" style={{ 
-                  color: 'var(--text-secondary)', 
-                  fontSize: '13px', 
+                  color: '#6b7280', 
+                  fontSize: '14px', 
                   fontStyle: 'italic',
-                  padding: '12px',
-                  background: 'var(--bg-secondary)',
-                  borderRadius: 'var(--border-radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  margin: '8px 0',
+                  padding: '16px',
+                  background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+                  borderRadius: '12px',
+                  border: '2px dashed #d1d5db',
+                  margin: '12px 0',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '10px',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
                 }}>
-                  <span>🤔</span>
-                  {getText({
-                    en: 'AI is thinking...',
-                    'zh-TW': 'AI 正在思考中...'
-                  })}
+                  <span style={{ fontSize: '18px' }}>🤔</span>
+                  <span style={{ fontWeight: '500' }}>
+                    {getText({
+                      en: 'AI is thinking...',
+                      'zh-TW': 'AI 正在思考中...'
+                    })}
+                  </span>
                 </div>
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
               <textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -1844,35 +1894,72 @@ Generate the block sequence in English:`,
                 })}
                 style={{
                   flex: 1,
-                  padding: '10px 12px',
-                  border: '2px solid #ddd',
-                  borderRadius: '8px',
-                  fontSize: '13px',
+                  padding: '14px 16px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  fontSize: '14px',
                   minHeight: '60px',
                   maxHeight: '120px',
                   resize: 'vertical',
                   fontFamily: 'inherit',
-                  lineHeight: '1.4'
+                  lineHeight: '1.5',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.2s ease',
+                  outline: 'none'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#3b82f6';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e5e7eb';
+                  e.target.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.1)';
                 }}
               />
               <button
                 onClick={sendChatMessage}
                 disabled={!chatInput.trim() || isChatLoading}
                 style={{
-                  background: '#ffc107',
-                  color: 'black',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: 'white',
                   border: 'none',
-                  borderRadius: '4px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
+                  borderRadius: '12px',
+                  padding: '14px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
                   cursor: 'pointer',
-                  opacity: (!chatInput.trim() || isChatLoading) ? 0.6 : 1
+                  opacity: (!chatInput.trim() || isChatLoading) ? 0.6 : 1,
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1)',
+                  minWidth: '80px'
+                }}
+                onMouseEnter={(e) => {
+                  if (chatInput.trim() && !isChatLoading) {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px 0 rgba(0, 0, 0, 0.15)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px 0 rgba(0, 0, 0, 0.1)';
                 }}
               >
-                {getText({
-                  en: 'Send',
-                  'zh-TW': '發送'
-                })}
+                {isChatLoading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="loading-pulse">⏳</span>
+                    {getText({
+                      en: 'Sending...',
+                      'zh-TW': '發送中...'
+                    })}
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    📤 {getText({
+                      en: 'Send',
+                      'zh-TW': '發送'
+                    })}
+                  </span>
+                )}
               </button>
             </div>
           </div>
@@ -2060,17 +2147,17 @@ Generate the block sequence in English:`,
       <section className="modern-card" style={{ marginBottom: 24, padding: 20 }}>
         <h3 className="section-title">
           📋 {getText({
-            en: 'Common Troubles',
-            'zh-TW': '常見問題 / Common Troubles',
-            'zh-CN': '常见问题 / Common Troubles',
-            es: 'Problemas Comunes / Common Troubles',
-            hi: 'सामान्य समस्याएं / Common Troubles',
-            ar: 'المشاكل الشائعة / Common Troubles',
-            pt: 'Problemas Comuns / Common Troubles',
-            bn: 'সাধারণ সমস্যা / Common Troubles',
-            ru: 'Частые Проблемы / Common Troubles',
-            fr: 'Problèmes Courants / Common Troubles',
-            id: 'Masalah Umum / Common Troubles'
+            en: 'Quick Troubleshooting',
+            'zh-TW': '快速故障排除 / Quick Troubleshooting',
+            'zh-CN': '快速故障排除 / Quick Troubleshooting',
+            es: 'Solución Rápida de Problemas / Quick Troubleshooting',
+            hi: 'त्वरित समस्या निवारण / Quick Troubleshooting',
+            ar: 'استكشاف سريع للأخطاء / Quick Troubleshooting',
+            pt: 'Solução Rápida de Problemas / Quick Troubleshooting',
+            bn: 'দ্রুত সমস্যা সমাধান / Quick Troubleshooting',
+            ru: 'Быстрое Устранение Неполадок / Quick Troubleshooting',
+            fr: 'Dépannage Rapide / Quick Troubleshooting',
+            id: 'Troubleshooting Cepat / Quick Troubleshooting'
           })}
         </h3>
 
@@ -2107,7 +2194,7 @@ Generate the block sequence in English:`,
         </div>
       </section>
 
-      {/* AI Advice Display */}
+      {/* Troubleshooting Advice Display */}
       {output && selectedError && (
         <section className="modern-card" style={{
           background: "linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)",
@@ -2121,20 +2208,25 @@ Generate the block sequence in English:`,
         }}>
           <h3 className="section-title" style={{ color: "var(--secondary-color)", fontSize: "18px" }}>
             💡 {getText({
-              en: 'AI Advice',
-              'zh-TW': 'AI 建議 / AI Advice',
-              'zh-CN': 'AI 建议 / AI Advice',
-              es: 'Consejo IA / AI Advice',
-              hi: 'AI सलाह / AI Advice',
-              ar: 'نصيحة الذكاء الاصطناعي / AI Advice',
-              pt: 'Conselho IA / AI Advice',
-              bn: 'AI পরামর্শ / AI Advice',
-              ru: 'ИИ Совет / AI Advice',
-              fr: 'Conseil IA / AI Advice',
-              id: 'Saran AI / AI Advice'
+              en: 'Troubleshooting Guide',
+              'zh-TW': '故障排除指南 / Troubleshooting Guide',
+              'zh-CN': '故障排除指南 / Troubleshooting Guide',
+              es: 'Guía de Solución de Problemas / Troubleshooting Guide',
+              hi: 'समस्या निवारण गाइड / Troubleshooting Guide',
+              ar: 'دليل استكشاف الأخطاء / Troubleshooting Guide',
+              pt: 'Guia de Solução de Problemas / Troubleshooting Guide',
+              bn: 'সমস্যা সমাধান গাইড / Troubleshooting Guide',
+              ru: 'Руководство по Устранению Неполадок / Troubleshooting Guide',
+              fr: 'Guide de Dépannage / Troubleshooting Guide',
+              id: 'Panduan Troubleshooting / Troubleshooting Guide'
             })}
           </h3>
-          <div style={{ whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>{output}</div>
+          <div style={{ 
+            whiteSpace: "pre-wrap", 
+            color: "var(--text-primary)",
+            fontSize: "13px",
+            lineHeight: "1.7"
+          }}>{output}</div>
         </section>
       )}
 

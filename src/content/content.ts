@@ -364,7 +364,7 @@ function analyzeBlockStructure(block: any, structure: any): void {
 }
 
 // Fallback to visual extraction if Blockly API fails
-// Helper function to extract clean text from an element
+// Function to extract clean text from an element
 /* REMOVED - no longer used
 function extractTextFromElement(element: Element): string {
   // Get text content but filter out nested block text
@@ -957,7 +957,7 @@ function extractVisibleWorkspaceBlocksVisual(): any[] {
   return blocks;
 }
 
-// Helper function to detect block type from text content
+// Function to detect block type from text content
 function detectBlockType(text: string): string {
   const lowerText = text.toLowerCase();
   
@@ -974,7 +974,7 @@ function detectBlockType(text: string): string {
   return 'unknown';
 }
 
-// Helper function to get only the block's own text, not nested children text
+// Function to get only the block's own text, not nested children text
 function getBlockOwnTextAndColor(element: Element): { text: string; color: string | null } {
   // Strategy: Get text from direct text nodes and .blocklyText elements within this block,
   // but avoid text from deeply nested child blocks
@@ -1165,7 +1165,7 @@ function getBlockOwnTextAndColor(element: Element): { text: string; color: strin
   return { text: finalText, color: detectedColor };
 }
 
-// Helper function to get the depth of a node relative to root
+// Function to get the depth of a node relative to root
 function getNodeDepth(node: Node, root: Element): number {
   let depth = 0;
   let current = node.parentNode;
@@ -1176,7 +1176,7 @@ function getNodeDepth(node: Node, root: Element): number {
   return depth;
 }
 
-// Helper function to convert hex/rgb colors to readable color names
+// Function to convert hex/rgb colors to readable color names
 function getColorName(fill: string): string | null {
   const colorMap: { [key: string]: string } = {
     // SPIKE Prime exact colors from CSS inspection
@@ -1287,7 +1287,7 @@ function getColorName(fill: string): string | null {
   return null;
 }
 
-// Helper function to check if a block is meaningless and should be filtered out
+// Function to check if a block is meaningless and should be filtered out
 function isMeaninglessBlock(text: string): boolean {
   const trimmedText = text.trim().toLowerCase();
   
@@ -1319,7 +1319,7 @@ function isMeaninglessBlock(text: string): boolean {
   return false;
 }
 
-// Helper function to detect block category from text content
+// Function to detect block category from text content
 function detectBlockCategory(text: string): string {
   const lowerText = text.toLowerCase();
   
@@ -1356,7 +1356,7 @@ function detectBlockCategory(text: string): string {
   return 'unknown';
 }
 
-// Helper function to clean and format block text
+// Function to clean and format block text
 function cleanBlockText(text: string, detectedColor?: string | null): string {
   // Remove extra whitespace and normalize
   let cleaned = text.replace(/\s+/g, ' ').trim();
@@ -1681,7 +1681,7 @@ function initialize() {
 let lastBlockHash = '';
 let monitoringActive = false;
 
-// Helper function to extract current blocks from workspace
+// Function to extract current blocks from workspace
 function getCurrentBlocks() {
   const hierarchy = extractBlocklyHierarchy();
   return hierarchy.flatBlocks || hierarchy;
