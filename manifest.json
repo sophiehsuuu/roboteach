@@ -3,7 +3,7 @@
   "name": "RoboCoach: SPIKE Prime AI Assistant",
   "version": "1.0.0",
   "description": "AI-powered programming assistant for LEGO SPIKE Prime. Get real-time debugging help and code generation.",
-  "permissions": ["scripting", "storage", "tabs"],
+  "permissions": ["tabs"],
   "host_permissions": ["https://spike.legoeducation.com/*"],
   "content_scripts": [
     {
