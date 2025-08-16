@@ -49,7 +49,7 @@ Transform your SPIKE Prime programming experience with intelligent AI assistance
 ## 🚀 Installation
 
 ### From Chrome Web Store (Recommended)
-1. Visit the [Chrome Web Store page](https://chrome.google.com/webstore)
+1. Visit the [Chrome Web Store Extension Page]([https://chrome.google.com/webstore](https://chromewebstore.google.com/detail/RoboCoach:%20SPIKE%20Prime%20AI%20Assistant/mpijbplinejfdikkigljnleapgmhmicp))
 2. Click "Add to Chrome"
 3. Navigate to [spike.legoeducation.com](https://spike.legoeducation.com)
 4. Click the RoboCoach extension icon
