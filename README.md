@@ -6,7 +6,7 @@
 
 **AI-powered programming assistant for LEGO SPIKE Prime**
 
-[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-brightgreen)](https://chrome.google.com/webstore)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-brightgreen)]([https://chrome.google.com/webstore](https://chromewebstore.google.com/detail/RoboCoach:%20SPIKE%20Prime%20AI%20Assistant/mpijbplinejfdikkigljnleapgmhmicp))
 [![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/roboyouthtaiwan/robocoach)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
